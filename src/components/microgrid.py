@@ -1,0 +1,256 @@
+import pandas as pd
+from pandas import DataFrame
+from typing import TypedDict, get_args
+from random import choice
+from pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
+from load import LoadProfile, LoadTypes, LoadParameters
+from battery import Battery, BatteryParameters
+from generator import Generator, GeneratorParameters
+from grid import Grid, GridParameters
+
+
+class Architecture(TypedDict):
+    pv: bool
+    battery: bool
+    generator: bool
+    grid: bool
+
+
+class MicrogridParameters(TypedDict):
+    pv: PVParameters
+    load: LoadParameters
+    battery: BatteryParameters
+    generator: GeneratorParameters
+    grid: GridParameters
+
+
+class MicrogridAction(TypedDict):
+    use_pv: int
+    use_generator: int
+    use_grid: int
+    # charge_battery: bool TODO: Include battery operation
+
+
+class Microgrid:
+
+    def __init__(self, architecture=None, parameters=None):
+        """
+
+        Parameters
+        ----------
+        architecture : Architecture
+            Dict indicating whether a microgrid contains a resource or not.
+        parameters : MicrogridParameters
+            Dict of parameters for the components of the microgrid.
+        """
+
+        # Check empty parameters configuration
+
+        if architecture is None:
+            architecture = {
+                'pv': True,
+                'battery': True,
+                'generator': False,
+                'grid': True
+            }
+
+        if parameters is None:
+            parameters = {
+                'pv': self.get_default_pv_params(),
+                'load': self.get_default_load_params(),
+                'battery': self.get_default_battery_params(),
+                'generator': self.get_default_generator_params(),
+                'grid': self.get_default_grid_params()
+            }
+
+        # Initialize the class attributes
+
+        self.architecture = architecture
+        self.parameters = parameters
+        self._current_t = 0
+
+        # Configure the microgrid
+
+        self._load = LoadProfile(parameters=parameters['load'])
+        if architecture['pv']:
+            self._pv = PVGeneration(parameters=parameters['pv'])
+            self._pv.configure_pv_system()
+        if architecture['battery']:
+            self._battery = Battery(parameters=parameters['battery'])
+        if architecture['generator']:
+            self._generator = Generator(parameters=parameters['generator'])
+        if architecture['grid']:
+            self._grid = Grid(parameters=parameters['grid'])
+
+        # Configure historic data DataFrames
+
+        self._actions_history = DataFrame([])
+        self._status_history = DataFrame([])
+        self._cost_history = DataFrame([])
+
+    def operate_one_step(self, action: object) -> (float, float, float):
+
+        # Process the action as MicrogridAction
+
+        use_pv, use_grid, use_generator = action
+        action = MicrogridAction(
+            use_pv=use_pv,
+            use_grid=use_grid,
+            use_generator=use_generator
+        )
+
+        load = self._load.get_step_load(self._current_t)
+        pv = 0.0
+        grid = 0.0
+        generator = 0.0
+        available_grid_supply = 0.0
+        # battery = 0.0
+
+        if self.architecture['pv'] and action['use_pv']:
+            pv = self._pv.get_step_generation(self._current_t)
+
+        # Surplus could be negative (there is lack of energy) or positive (energy to export).
+
+        surplus = pv - load
+
+        # Is there is a lack of energy we get energy from the grid, when there is excess the energy we export.
+
+        if self.architecture['grid'] and action['use_grid']:
+
+            available_grid_supply = self._grid.max_export + surplus
+
+            # If available grid supply is negative, the grid cannot meet the load, we need extra generation
+            if available_grid_supply < 0:
+                grid = self._grid.max_export
+            else:
+                # A positive grid value means its exporting energy, a negative that its importing
+                grid = -surplus
+
+        # In the case the grid is not able to provide energy, we get the energy from the generator
+
+        generator_max_power = self._generator.p_max * self._generator.rated_power
+
+        if self.architecture['generator'] and action['use_generator'] and action['use_grid']:
+
+            available_generator_supply = generator_max_power + available_grid_supply
+
+            # If available generator supply is negative, there is not enough energy in the microgrid
+            if available_generator_supply < 0:
+                generator = generator_max_power
+            # Lack of grid energy, the generator gives the extra energy.
+            elif available_generator_supply < generator_max_power:
+                generator = available_grid_supply
+
+        # If the grid is not enabled, we supply the rest of energy with the generator
+
+        if self.architecture['generator'] and action['use_generator'] and not action['use_grid']:
+
+            available_generator_supply = generator_max_power + surplus
+
+            # If available generator supply is negative, there is not enough energy in the microgrid
+            if available_generator_supply < 0:
+                generator = generator_max_power
+            else:
+                # If there is surplus, it is just discarded as there is no grid.
+                generator = max(-surplus, 0)
+
+        # Check and compute if there is unmet load
+
+        unmet_load = load - pv - grid - generator
+
+        # Compute grid operation cost
+
+        cost = grid * self._grid.price_export if grid > 0 else grid * self._grid.price_import
+        cost += generator * self._generator.fuel_cost
+        cost += unmet_load * 1.5 * self._grid.price_export if unmet_load > 0 else 0
+
+        # Increase time step and get next step observations
+
+        self._current_t += 1
+        load_t_next = self._load.get_step_load(self._current_t)
+        pv_t_next = self._pv.get_step_generation(self._current_t)
+
+        return load_t_next, pv_t_next, cost
+
+    def get_current_step(self):
+        """
+            Returns the current time step.
+        Returns
+        -------
+            self.current_t: int
+                Current microgrid time step
+        """
+        return self._current_t
+
+    def reset_current_step(self):
+        """
+            Resets the current time step.
+        Returns
+        -------
+            None
+        """
+        self._current_t = 0
+
+    @staticmethod
+    def get_default_pv_params() -> PVParameters:
+        return PVParameters(
+            coordinates=Coordinates(
+                latitude=24.4274827,
+                longitude=54.6234876,
+                name='Masdar',
+                altitude=0,
+                timezone='Asia/Dubai'
+            ),
+            pv_parameters=PVCharacteristics(
+                n_arrays=1,
+                modules_per_string=10,
+                n_strings=1,
+                surface_tilt=20,
+                surface_azimuth=180,
+                solar_panel_ref='Canadian_Solar_CS5P_220M___2009_',
+                inverter_ref='iPower__SHO_5_2__240V_'
+            ),
+            year=2022
+        )
+
+    @staticmethod
+    def get_default_load_params():
+        return LoadParameters(
+            load_type=choice(get_args(LoadTypes))
+        )
+
+    @staticmethod
+    def get_default_battery_params():
+        return BatteryParameters(
+            soc=0.0,
+            soc_max=0.9,
+            soc_min=0.1,
+            p_charge_max=2500,
+            p_discharge_max=2500,
+            efficiency=0.9,
+            cost_cycle=0.2,
+            capacity=10000,
+            capacity_to_charge=0.0,
+            capacity_to_discharge=8888.888
+        )
+
+    @staticmethod
+    def get_default_generator_params():
+        return GeneratorParameters(
+            rated_power=5000,
+            p_max=0.9,
+            p_min=0.1,
+            fuel_cost=0.4,
+            co2=2
+        )
+
+    @staticmethod
+    def get_default_grid_params():
+        return GridParameters(
+            max_export=50000,
+            max_import=50000,
+            price_export=0.01,
+            price_import=0.08,
+            status=True,
+            co2=2
+        )
