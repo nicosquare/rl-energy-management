@@ -61,3 +61,15 @@ class Generator:
         self.p_min = parameters['p_min']
         self.rated_power = parameters['rated_power']
         self.co2 = parameters['co2']
+
+    def check_generator_constraints(self, power_rate: float):
+
+        real_rate = power_rate
+
+        if power_rate > self.p_max:
+            real_rate = self.p_max
+
+        if power_rate < self.p_min:
+            real_rate = self.p_min
+
+        return real_rate * self.rated_power

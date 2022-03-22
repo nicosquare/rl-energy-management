@@ -1,12 +1,13 @@
-import pandas as pd
+import numpy as np
+
 from pandas import DataFrame
 from typing import TypedDict, get_args
 from random import choice
-from pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
-from load import LoadProfile, LoadTypes, LoadParameters
-from battery import Battery, BatteryParameters
-from generator import Generator, GeneratorParameters
-from grid import Grid, GridParameters
+from .pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
+from .load import LoadProfile, LoadTypes, LoadParameters
+from .battery import Battery, BatteryParameters
+from .generator import Generator, GeneratorParameters
+from .grid import Grid, GridParameters
 
 
 class Architecture(TypedDict):
@@ -25,9 +26,9 @@ class MicrogridParameters(TypedDict):
 
 
 class MicrogridAction(TypedDict):
-    use_pv: int
-    use_generator: int
-    use_grid: int
+    use_pv: bool
+    use_generator: bool
+    use_grid: bool
     # charge_battery: bool TODO: Include battery operation
 
 
@@ -50,7 +51,7 @@ class Microgrid:
             architecture = {
                 'pv': True,
                 'battery': True,
-                'generator': False,
+                'generator': True,
                 'grid': True
             }
 
@@ -88,26 +89,32 @@ class Microgrid:
         self._status_history = DataFrame([])
         self._cost_history = DataFrame([])
 
-    def operate_one_step(self, action: object) -> (float, float, float):
+    def observe_by_source_selection(self) -> np.ndarray:
+        load_t = self._load.get_step_load(self._current_t)
+        pv_t = 0
+
+        if self.architecture['pv']:
+            pv_t = self._pv.get_step_generation(self._current_t)
+
+        return np.array([load_t, pv_t])
+
+    def operation_by_source_selection(self, action: int) -> (float, float, float):
 
         # Process the action as MicrogridAction
 
-        use_pv, use_grid, use_generator = action
+        binary_action = [bit == '1' for bit in "{0:3b}".format(0)]
+
         action = MicrogridAction(
-            use_pv=use_pv,
-            use_grid=use_grid,
-            use_generator=use_generator
+            use_pv=binary_action[0],
+            use_grid=binary_action[1],
+            use_generator=binary_action[2]
         )
 
-        load = self._load.get_step_load(self._current_t)
-        pv = 0.0
+        load, pv = self.observe_by_source_selection()
         grid = 0.0
         generator = 0.0
         available_grid_supply = 0.0
         # battery = 0.0
-
-        if self.architecture['pv'] and action['use_pv']:
-            pv = self._pv.get_step_generation(self._current_t)
 
         # Surplus could be negative (there is lack of energy) or positive (energy to export).
 
@@ -164,13 +171,48 @@ class Microgrid:
         cost += generator * self._generator.fuel_cost
         cost += unmet_load * 1.5 * self._grid.price_export if unmet_load > 0 else 0
 
-        # Increase time step and get next step observations
+        # Increase time step
 
         self._current_t += 1
-        load_t_next = self._load.get_step_load(self._current_t)
-        pv_t_next = self._pv.get_step_generation(self._current_t)
 
-        return load_t_next, pv_t_next, cost
+        return self.observe_by_source_selection(), cost
+
+    def observe_by_setting_generator(self) -> np.ndarray:
+
+        soc = self._battery.soc
+        ghi = self._pv.get_ghi(self._current_t)
+        pressure = self._pv.get_pressure(self._current_t)
+        wind_speed = self._pv.get_wind_speed(self._current_t)
+        air_temperature = self._pv.get_air_temperature(self._current_t)
+        relative_humidity = self._pv.get_relative_humidity(self._current_t)
+
+        return np.array([soc, ghi, pressure, wind_speed, air_temperature, relative_humidity])
+
+    def operation_by_setting_generator(self, power_rate: float) -> (np.ndarray, float):
+
+        load = self._load.get_step_load(self._current_t)
+        pv = self._pv.get_step_generation(self._current_t)
+        # grid = 0.0 - TODO: Include grid in this setting
+        generator = self._generator.check_generator_constraints(power_rate=power_rate)
+
+        # Decide the interaction with the battery
+
+        remaining_power = generator + pv - load
+
+        p_charge, p_discharge = self._battery.check_battery_constraints(remaining_power=remaining_power)
+
+        # Compute grid operation cost
+
+        if remaining_power > 0:
+            cost = generator * self._generator.fuel_cost
+        else:
+            cost = generator * self._generator.fuel_cost + p_discharge*self._battery.cost_cycle
+
+        # Increase time step
+
+        self._current_t += 1
+
+        return self.observe_by_setting_generator(), cost
 
     def get_current_step(self):
         """
@@ -222,7 +264,7 @@ class Microgrid:
     @staticmethod
     def get_default_battery_params():
         return BatteryParameters(
-            soc=0.0,
+            soc=0.1,
             soc_max=0.9,
             soc_min=0.1,
             p_charge_max=2500,
@@ -230,8 +272,8 @@ class Microgrid:
             efficiency=0.9,
             cost_cycle=0.2,
             capacity=10000,
-            capacity_to_charge=0.0,
-            capacity_to_discharge=8888.888
+            capacity_to_charge=8888.888,
+            capacity_to_discharge=0
         )
 
     @staticmethod

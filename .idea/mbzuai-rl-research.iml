@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
-    <orderEntry type="jdk" jdkName="Python 3.9 (rl_research)" jdkType="Python SDK" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/pymgrid_ref/notebooks/.ipynb_checkpoints" />
+      <excludeFolder url="file://$MODULE_DIR$/pymgrid_ref/src/pymgrid.egg-info" />
+      <excludeFolder url="file://$MODULE_DIR$/pymgrid_ref/build" />
+      <excludeFolder url="file://$MODULE_DIR$/src/rl/wandb/run-20220315_120606-2d8c14ao" />
+      <excludeFolder url="file://$MODULE_DIR$/.ipynb_checkpoints" />
+    </content>
+    <orderEntry type="jdk" jdkName="Remote Python 3.9.7 (sftp://nicolas.avila@rhpclabs.mbzu.ae:22/home/nicolas.avila/.conda/envs/rl_research/bin/python)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

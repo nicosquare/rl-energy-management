@@ -1,3 +1,0 @@
-[submodule "pymgrid"]
-	path = pymgrid_ref
-	url = git@github.com:Total-RD/pymgrid.git

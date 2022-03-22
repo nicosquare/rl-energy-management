@@ -1,12 +1,12 @@
 import numpy as np
 
 from gym import Env
-from gym.spaces import Box, MultiBinary
+from gym.spaces import Box
 
 from src.components.microgrid import Microgrid
 
 
-class GymMG(Env):
+class MGSetGenerator(Env):
 
     def __init__(self):
         """
@@ -15,21 +15,29 @@ class GymMG(Env):
         self.state, self.reward, self.done, self.info = None, None, None, None
 
         self.observation_space = Box(
-            low=-float(np.float('inf')),
+            low=-float(-np.float('inf')),
             high=float(np.float('inf')),
-            shape=(2, 1),
+            shape=(6,),
             dtype=np.float32
         )
 
-        self.action_space = MultiBinary(3)
+        self.action_space = Box(
+            low=-float(-np.float('inf')),
+            high=float(np.float('inf')),
+            shape=(1,),
+            dtype=np.float32
+        )
 
         self.mg = Microgrid()
 
+    def _observe(self):
+        return self.mg.observe_by_setting_generator()
+
     def step(self, action):
-        load_t_next, pv_t_next, cost = self.mg.operate_one_step(action=action)
-        self.state = np.array([load_t_next, pv_t_next])
+        state, cost = self.mg.operation_by_setting_generator(power_rate=action)
+        self.state = state
         self.reward = -cost
-        self.done = self.mg.get_current_step() == 24 * 365 # End of a year
+        self.done = self.mg.get_current_step() == 24 * 365 - 1  # End of a year
         self.info = {}
 
         return self.state, self.reward, self.done, self.info
@@ -40,4 +48,3 @@ class GymMG(Env):
 
     def render(self, mode="human"):
         print('TODO')
-

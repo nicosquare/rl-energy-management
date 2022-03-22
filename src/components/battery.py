@@ -94,3 +94,39 @@ class Battery:
         self.cost_cycle = parameters['cost_cycle']
         self.capacity_to_charge = parameters['capacity_to_charge']
         self.capacity_to_discharge = parameters['capacity_to_discharge']
+
+    def check_battery_constraints(self, remaining_power: float):
+
+        p_charge = 0
+        p_discharge = 0
+
+        if remaining_power < 0:
+            p_discharge = abs(remaining_power)
+        else:
+            p_charge = remaining_power
+
+        # Compute the capacities to charge or discharge
+
+        self.capacity_to_charge = max(
+            (self.soc_max * self.capacity - self.soc * self.capacity) / self.efficiency
+            , 0
+        )
+
+        self.capacity_to_discharge = max(
+            (self.soc * self.capacity - self.soc_min * self.capacity) / self.efficiency
+            , 0
+        )
+
+        # Check battery constraints
+
+        if p_charge > self.capacity_to_charge or p_charge > self.p_charge_max:
+            p_charge = min(self.capacity_to_charge, self.p_charge_max)
+
+        if p_discharge > self.capacity_to_discharge or p_discharge > self.p_discharge_max:
+            p_discharge = min(self.capacity_to_discharge, self.p_discharge_max)
+
+        # Compute new SoC
+
+        self.soc = (self.soc + p_charge*self.efficiency - p_discharge/self.efficiency) / self.capacity
+
+        return p_charge, p_discharge, self.soc
