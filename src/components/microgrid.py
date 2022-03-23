@@ -199,7 +199,7 @@ class Microgrid:
 
         remaining_power = generator + pv - load
 
-        p_charge, p_discharge = self._battery.check_battery_constraints(remaining_power=remaining_power)
+        p_charge, p_discharge, _ = self._battery.check_battery_constraints(remaining_power=remaining_power)
 
         # Compute grid operation cost
 

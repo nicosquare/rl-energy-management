@@ -34,7 +34,7 @@ class MGSetGenerator(Env):
         return self.mg.observe_by_setting_generator()
 
     def step(self, action):
-        state, cost = self.mg.operation_by_setting_generator(power_rate=action)
+        state, cost = self.mg.operation_by_setting_generator(power_rate=action[0])
         self.state = state
         self.reward = -cost
         self.done = self.mg.get_current_step() == 24 * 365 - 1  # End of a year
@@ -44,7 +44,7 @@ class MGSetGenerator(Env):
 
     def reset(self):
         self.mg.reset_current_step()
-        self.state, self.reward, self.done, self.info = None, None, None, None
+        return self._observe(), 0, False, {}
 
     def render(self, mode="human"):
         print('TODO')

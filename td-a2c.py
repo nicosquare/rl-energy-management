@@ -102,7 +102,7 @@ class A2CAgent:
 
     def env_reset(self):
 
-        state = self.env.reset()
+        state, _, _, _ = self.env.reset()
         self.state = torch.tensor(state, device=device)
 
         return state
