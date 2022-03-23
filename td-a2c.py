@@ -26,6 +26,8 @@ torch.set_default_dtype(torch.float64)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+wandb.login(key=str(os.environ.get("WANDB_KEY")))
+
 
 def set_all_seeds(seed):
     np.random.seed(seed)
@@ -225,8 +227,6 @@ if __name__ == '__main__':
         "entropy_weight": test_entropy_weight,
         "n_steps": test_n_steps,
     }
-
-    wandb.login(key=str(os.environ.get("WANDB_KEY")))
 
     """Train the agent"""
     agent.is_test = False
