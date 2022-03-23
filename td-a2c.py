@@ -7,13 +7,15 @@
     Credits: Rubén Soloazabal, MBZUAI, Optim-Lab
 
 """
-from typing import Tuple
 
 import numpy as np
 import torch
-from torch import clamp, Tensor
+import wandb
 import torch.nn.functional as func
 import torch.optim as optim
+
+from typing import Tuple
+from torch import clamp, Tensor
 from torch.nn import ReLU, Tanh, Linear, Parameter, Module, Sequential
 from torch.distributions import Normal
 
@@ -85,6 +87,10 @@ class A2CAgent:
 
         self.actor = Actor(obs_dim, action_dim, hidden_size).to(device)
         self.critic = Critic(obs_dim, hidden_size).to(device)
+
+        # Hooks into the models to collect gradients and topology
+
+        wandb.watch(models=(self.actor, self.critic))
 
         self.state = None
 
@@ -207,6 +213,18 @@ if __name__ == '__main__':
     # Instantiate the agent
     agent = A2CAgent(myEnv, test_gamma, test_entropy_weight, test_n_steps)
 
+    # Initialize Wandb for logging purposes
+
+    wandb.init(project="td-a2c-mg-set-gen", entity="madog")
+
+    wandb.config = {
+        "batch": test_batch,
+        "num_frames": num_frames,
+        "gamma": test_gamma,
+        "entropy_weight": test_entropy_weight,
+        "n_steps": test_n_steps,
+    }
+
     """Train the agent"""
     agent.is_test = False
 
@@ -239,6 +257,14 @@ if __name__ == '__main__':
         actor_losses.append(actor_loss)
         critic_losses.append(critic_loss)
 
+        # Log the losses in Wandb
+
+        wandb.log({
+            "actor_loss": actor_loss,
+            "critic_loss": critic_loss,
+            "loss": loss
+        })
+
         policy_updates += 1
 
         if policy_updates % 1000 == 0:
@@ -255,9 +281,19 @@ if __name__ == '__main__':
                     agent_state = agen_next_state
                     agent_rewards.append(agent_reward)
 
+                    wandb.log({
+                        "action": agent_action,
+                        "reward": agent_reward,
+                    })
+
                 sc.append(sum(agent_rewards))
 
             scores.append(sum(sc) / test_batch)
+
+            wandb.log({
+                "scores": scores[-1],
+            })
+            
             agent.env_reset()
 
             print('reward: ', scores[-1], 'AcLoss: ', actor_loss, 'CrLoss: ', critic_loss)
