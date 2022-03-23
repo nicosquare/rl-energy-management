@@ -7,5 +7,5 @@
 #SBATCH --mem-per-cpu=4000		# Job memory request
 #SBATCH --gres=gpu:1			# Number of GPUs (per node)
 
-srun python src/rl/td-a2c.py
+srun python td-a2c.py
 
