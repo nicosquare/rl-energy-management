@@ -90,11 +90,11 @@ class Microgrid:
         self._cost_history = DataFrame([])
 
     def observe_by_source_selection(self) -> np.ndarray:
-        load_t = self._load.get_step_load(self._current_t)
+        load_t = self._load.get_step_load(self.get_current_step())
         pv_t = 0
 
         if self.architecture['pv']:
-            pv_t = self._pv.get_step_generation(self._current_t)
+            pv_t = self._pv.get_step_generation(self.get_current_step())
 
         return np.array([load_t, pv_t])
 
@@ -180,18 +180,18 @@ class Microgrid:
     def observe_by_setting_generator(self) -> np.ndarray:
 
         soc = self._battery.soc
-        ghi = self._pv.get_ghi(self._current_t)
-        pressure = self._pv.get_pressure(self._current_t)
-        wind_speed = self._pv.get_wind_speed(self._current_t)
-        air_temperature = self._pv.get_air_temperature(self._current_t)
-        relative_humidity = self._pv.get_relative_humidity(self._current_t)
+        ghi = self._pv.get_ghi(self.get_current_step())
+        pressure = self._pv.get_pressure(self.get_current_step())
+        wind_speed = self._pv.get_wind_speed(self.get_current_step())
+        air_temperature = self._pv.get_air_temperature(self.get_current_step())
+        relative_humidity = self._pv.get_relative_humidity(self.get_current_step())
 
         return np.array([soc, ghi, pressure, wind_speed, air_temperature, relative_humidity])
 
     def operation_by_setting_generator(self, power_rate: float) -> (np.ndarray, float):
 
-        load = self._load.get_step_load(self._current_t)
-        pv = self._pv.get_step_generation(self._current_t)
+        load = self._load.get_step_load(self.get_current_step())
+        pv = self._pv.get_step_generation(self.get_current_step())
         # grid = 0.0 - TODO: Include grid in this setting
         generator = self._generator.check_generator_constraints(power_rate=power_rate)
 
@@ -199,7 +199,7 @@ class Microgrid:
 
         remaining_power = generator + pv - load
 
-        p_charge, p_discharge = self._battery.check_battery_constraints(remaining_power=remaining_power)
+        p_charge, p_discharge, _ = self._battery.check_battery_constraints(remaining_power=remaining_power)
 
         # Compute grid operation cost
 
@@ -222,7 +222,7 @@ class Microgrid:
             self.current_t: int
                 Current microgrid time step
         """
-        return self._current_t
+        return self._current_t % 8760
 
     def reset_current_step(self):
         """

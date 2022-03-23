@@ -59,7 +59,7 @@ class LoadProfile:
                 DataFrame containing the year of the selected type of load.
 
         """
-        load_data = pd.read_csv('../resources/opsd_household_data.csv')
+        load_data = pd.read_csv('src/resources/opsd_household_data.csv')
 
         return load_data[f'{self.load_type}_grid_import'].diff(-1).abs().fillna(0)
 
