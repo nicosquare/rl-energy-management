@@ -8,6 +8,7 @@
 
 """
 
+import os
 import numpy as np
 import torch
 import wandb
@@ -225,6 +226,8 @@ if __name__ == '__main__':
         "n_steps": test_n_steps,
     }
 
+    wandb.login(key=str(os.environ.get("WANDB_KEY")))
+
     """Train the agent"""
     agent.is_test = False
 
@@ -293,7 +296,7 @@ if __name__ == '__main__':
             wandb.log({
                 "scores": scores[-1],
             })
-            
+
             agent.env_reset()
 
             print('reward: ', scores[-1], 'AcLoss: ', actor_loss, 'CrLoss: ', critic_loss)
