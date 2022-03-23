@@ -19,6 +19,7 @@ from typing import Tuple
 from torch import clamp, Tensor
 from torch.nn import ReLU, Tanh, Linear, Parameter, Module, Sequential
 from torch.distributions import Normal
+from dotenv import load_dotenv
 
 from src.environments.mg_set_generator import MGSetGenerator
 
@@ -26,7 +27,12 @@ torch.set_default_dtype(torch.float64)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+# Initialize Wandb for logging purposes
+
+load_dotenv()
 wandb.login(key=str(os.environ.get("WANDB_KEY")))
+
+wandb.init(project="td-a2c-mg-set-gen", entity="madog")
 
 
 def set_all_seeds(seed):
@@ -215,10 +221,6 @@ if __name__ == '__main__':
 
     # Instantiate the agent
     agent = A2CAgent(myEnv, test_gamma, test_entropy_weight, test_n_steps)
-
-    # Initialize Wandb for logging purposes
-
-    wandb.init(project="td-a2c-mg-set-gen", entity="madog")
 
     wandb.config = {
         "batch": test_batch,
