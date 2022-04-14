@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-src/rl/wandb/*
+wandb/*
 
 # Exclude CSCC logs
 

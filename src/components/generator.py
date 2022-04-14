@@ -3,18 +3,18 @@ from typing import TypedDict
 
 class GeneratorParameters(TypedDict):
     """
-        rated_power: int
-            Maximum rated power of the generator.
+        rated_power: float
+            Maximum rated power of the generator (kW).
         p_min: float
-            Value representing the minimum operating power of the generator (kW)
+            Value representing the minimum operating power of the generator (%)
         p_max: float
-            Value representing the maximum operating power of the generator (kW)
+            Value representing the maximum operating power of the generator (%)
         fuel_cost: float
             Value representing the cost of using the generator in $/kWh.
         co2: float
             Carbon footprint of the energy using this generator in grams of CO2/kWh
     """
-    rated_power: int
+    rated_power: float
     p_min: float
     p_max: float
     fuel_cost: float

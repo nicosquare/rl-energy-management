@@ -14,7 +14,7 @@
       <excludeFolder url="file://$MODULE_DIR$/src/rl/wandb/run-20220315_142745-33bb6c5p" />
       <excludeFolder url="file://$MODULE_DIR$/src/rl/wandb/run-20220315_142918-3i2z377g" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (rl_research)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.8 (ml-707-project)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

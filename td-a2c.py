@@ -16,8 +16,9 @@ import torch.nn.functional as func
 import torch.optim as optim
 
 from typing import Tuple
+from math import floor
 from torch import clamp, Tensor
-from torch.nn import ReLU, Tanh, Linear, Parameter, Module, Sequential
+from torch.nn import ReLU, Linear, Module, Sequential, Sigmoid
 from torch.distributions import Normal
 from dotenv import load_dotenv
 
@@ -31,8 +32,6 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 load_dotenv()
 wandb.login(key=str(os.environ.get("WANDB_KEY")))
-
-wandb.init(project="td-a2c-mg-set-gen", entity="madog")
 
 
 def set_all_seeds(seed):
@@ -50,17 +49,16 @@ class Actor(Module):
             Linear(num_inputs, hidden_size),
             ReLU(),
             Linear(hidden_size, hidden_size),
-            Tanh(),
+            Sigmoid(),
             Linear(hidden_size, num_actions)  # Mu layer
         )
 
-        # Works better with parametric std
-        self.log_std = Parameter(torch.zeros(num_actions))
-
     def forward(self, state: Tensor) -> Normal:
-        means = self.model(state)
-        stds = clamp(self.log_std.exp(), 1e-3, 50)
-        dist = Normal(means, stds)
+        mean, stds = self.model(state)
+
+        mean = clamp(mean, 1e-3, 1)
+        stds = clamp(stds, 1e-3, 1)
+        dist = Normal(mean, stds)
 
         return dist
 
@@ -83,7 +81,7 @@ class Critic(Module):
 
 class A2CAgent:
 
-    def __init__(self, env, gamma: float, entropy_weight: float, n_steps: int, hidden_size: int = 64):
+    def __init__(self, env, gamma: float, entropy_weight: float, n_steps: int, hidden_size: int = 64, lr: float = 1e-4):
         """Initialize."""
         self.env = env
         self.gamma = gamma
@@ -104,7 +102,7 @@ class A2CAgent:
         self.state = None
 
         # optimizer
-        self.optimizer = optim.Adam(self.actor.parameters(), lr=7e-4)
+        self.optimizer = optim.Adam(self.actor.parameters(), lr=lr)
 
         # transition (state, log_prob, next_state, reward, done)
         self.transitions: list = list()
@@ -162,8 +160,11 @@ class A2CAgent:
                 self.transitions[-1].extend(value)
 
             next_state, reward, done = agent.step(action)
-            # if reward > 10:
-            #     print('rewerd:', reward)
+
+            wandb.log({
+                "reward": reward,
+                "action": action
+            })
 
             self.state = torch.tensor(next_state, device=device)
             if done:
@@ -207,11 +208,25 @@ class A2CAgent:
 
 if __name__ == '__main__':
 
-    test_batch = 10
-    num_frames = 150000
+    test_batch = 5
+    num_frames = 24 * 30 * 2  # Hours * Days * Months
     test_gamma = 0.99
     test_entropy_weight = 1e-2
     test_n_steps = 5
+    test_learning_rate = 4e-4
+
+    wandb.init(
+        project="td-a2c-mg-set-gen",
+        entity="madog",
+        config={
+            "batch": test_batch,
+            "num_frames": num_frames,
+            "gamma": test_gamma,
+            "entropy_weight": test_entropy_weight,
+            "n_steps": test_n_steps,
+            "learning_rate": test_learning_rate,
+        }
+    )
 
     set_all_seeds(420)
 
@@ -220,15 +235,9 @@ if __name__ == '__main__':
     myEnv = MGSetGenerator()
 
     # Instantiate the agent
-    agent = A2CAgent(myEnv, test_gamma, test_entropy_weight, test_n_steps)
-
-    wandb.config = {
-        "batch": test_batch,
-        "num_frames": num_frames,
-        "gamma": test_gamma,
-        "entropy_weight": test_entropy_weight,
-        "n_steps": test_n_steps,
-    }
+    agent = A2CAgent(
+        env=myEnv, gamma=test_gamma, entropy_weight=test_entropy_weight, n_steps=test_n_steps, lr=test_learning_rate
+    )
 
     """Train the agent"""
     agent.is_test = False
@@ -262,8 +271,6 @@ if __name__ == '__main__':
         actor_losses.append(actor_loss)
         critic_losses.append(critic_loss)
 
-        # Log the losses in Wandb
-
         wandb.log({
             "actor_loss": actor_loss,
             "critic_loss": critic_loss,
@@ -272,33 +279,34 @@ if __name__ == '__main__':
 
         policy_updates += 1
 
-        if policy_updates % 1000 == 0:
+        # Test policy each 30 days approx. (depends on the test_n_steps value, it should be less than 30).
+
+        if policy_updates % floor(30 * 24 / test_n_steps) == 0:
             sc = []
             for i in range(test_batch):
+
                 agent_done = False
                 agent_state = agent.env_reset()
                 agent_rewards = []
 
-                while not agent_done:
+                for _ in range(num_frames):
+
                     agent_state = torch.tensor(agent_state).to(device)
                     agent_action = agent.select_action(agent_state)
                     agen_next_state, agent_reward, agent_done = agent.step(agent_action)
                     agent_state = agen_next_state
                     agent_rewards.append(agent_reward)
 
-                    wandb.log({
-                        "action": agent_action,
-                        "reward": agent_reward,
-                    })
-
                 sc.append(sum(agent_rewards))
 
             scores.append(sum(sc) / test_batch)
 
-            wandb.log({
-                "scores": scores[-1],
-            })
-
             agent.env_reset()
 
-            print('reward: ', scores[-1], 'AcLoss: ', actor_loss, 'CrLoss: ', critic_loss)
+            wandb.log({
+                "test_batch_reward": scores[-1],
+            })
+
+    # Finish Wandb process when finishing
+
+    wandb.finish()

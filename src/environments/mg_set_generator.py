@@ -5,6 +5,8 @@ from gym.spaces import Box
 
 from src.components.microgrid import Microgrid
 
+inf = np.float64('inf')
+
 
 class MGSetGenerator(Env):
 
@@ -14,17 +16,35 @@ class MGSetGenerator(Env):
         """
         self.state, self.reward, self.done, self.info = None, None, None, None
 
+        """
+        Observation space is composed by:
+        
+            soc: [0,1]
+            ghi: [0, inf]
+            pressure: [0, inf]
+            wind_speed: [0, inf]
+            air_temperature: [-inf, inf]
+            relative_humidity = [0, inf]
+        
+        """
+
         self.observation_space = Box(
-            low=-float(-np.float('inf')),
-            high=float(np.float('inf')),
+            low=np.float32(np.array([0.0, 0.0, 0.0, 0.0, -inf, 0])),
+            high=np.float32(np.array([1.0, inf, inf, inf, inf, inf])),
             shape=(6,),
             dtype=np.float32
         )
 
+        """
+        Action space is a single continuous value defined by a Normal distribution with two parameters (actions):
+            mu: Mean of the normal distribution
+            sigma: Standard deviation of the normal distribution
+        """
+
         self.action_space = Box(
-            low=-float(-np.float('inf')),
-            high=float(np.float('inf')),
-            shape=(1,),
+            low=0,
+            high=1,
+            shape=(2,),
             dtype=np.float32
         )
 
@@ -34,10 +54,10 @@ class MGSetGenerator(Env):
         return self.mg.observe_by_setting_generator()
 
     def step(self, action):
-        state, cost = self.mg.operation_by_setting_generator(power_rate=action[0])
+        state, cost = self.mg.operation_by_setting_generator(power_rate=action.item())
         self.state = state
         self.reward = -cost
-        self.done = self.mg.get_current_step() == 24 * 365 - 1  # End of a year
+        self.done = False
         self.info = {}
 
         return self.state, self.reward, self.done, self.info

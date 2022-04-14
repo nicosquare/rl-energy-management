@@ -125,8 +125,8 @@ class Battery:
         if p_discharge > self.capacity_to_discharge or p_discharge > self.p_discharge_max:
             p_discharge = min(self.capacity_to_discharge, self.p_discharge_max)
 
-        # Compute new SoC
+        # Compute new SoC: when p_charge has a value <> 0, p_discharge is 0, and vice-versa
 
-        self.soc = (self.soc + p_charge*self.efficiency - p_discharge/self.efficiency) / self.capacity
+        self.soc = self.soc + (p_charge*self.efficiency - p_discharge/self.efficiency) / self.capacity
 
         return p_charge, p_discharge, self.soc

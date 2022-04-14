@@ -1,8 +1,8 @@
+import wandb
 import numpy as np
 
 from pandas import DataFrame
-from typing import TypedDict, get_args
-from random import choice
+from typing import TypedDict
 from .pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
 from .load import LoadProfile, LoadTypes, LoadParameters
 from .battery import Battery, BatteryParameters
@@ -203,10 +203,20 @@ class Microgrid:
 
         # Compute grid operation cost
 
-        if remaining_power > 0:
-            cost = generator * self._generator.fuel_cost
-        else:
-            cost = generator * self._generator.fuel_cost + p_discharge*self._battery.cost_cycle
+        cost = (generator - p_discharge) * self._generator.fuel_cost
+
+        wandb.log({
+            'load': load,
+            'pv': pv,
+            'generator': generator,
+            'remaining_power': remaining_power,
+            'soc': self._battery.soc,
+            'cap_to_charge': self._battery.capacity_to_charge,
+            'cap_to_discharge': self._battery.capacity_to_discharge,
+            'p_charge': p_charge,
+            'p_discharge': p_discharge,
+            'cost': cost
+        })
 
         # Increase time step
 
@@ -258,7 +268,7 @@ class Microgrid:
     @staticmethod
     def get_default_load_params():
         return LoadParameters(
-            load_type=choice(get_args(LoadTypes))
+            load_type='residential_1'
         )
 
     @staticmethod
@@ -267,19 +277,19 @@ class Microgrid:
             soc=0.1,
             soc_max=0.9,
             soc_min=0.1,
-            p_charge_max=2500,
-            p_discharge_max=2500,
+            p_charge_max=0.5,
+            p_discharge_max=0.5,
             efficiency=0.9,
-            cost_cycle=0.2,
-            capacity=10000,
-            capacity_to_charge=8888.888,
+            cost_cycle=0.04,
+            capacity=4,
+            capacity_to_charge=3.2,
             capacity_to_discharge=0
         )
 
     @staticmethod
     def get_default_generator_params():
         return GeneratorParameters(
-            rated_power=5000,
+            rated_power=2.5,
             p_max=0.9,
             p_min=0.1,
             fuel_cost=0.4,
@@ -289,8 +299,8 @@ class Microgrid:
     @staticmethod
     def get_default_grid_params():
         return GridParameters(
-            max_export=50000,
-            max_import=50000,
+            max_export=50,
+            max_import=50,
             price_export=0.01,
             price_import=0.08,
             status=True,

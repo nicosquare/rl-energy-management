@@ -5,6 +5,8 @@ from gym.spaces import Box, Discrete
 
 from src.components.microgrid import Microgrid
 
+inf = np.float64('inf')
+
 
 class MGSourceSelection(Env):
 
@@ -15,8 +17,8 @@ class MGSourceSelection(Env):
         self.state, self.reward, self.done, self.info = None, None, None, None
 
         self.observation_space = Box(
-            low=-float(np.float('inf')),
-            high=float(np.float('inf')),
+            low=-inf,
+            high=inf,
             shape=(2,),
             dtype=np.float32
         )
