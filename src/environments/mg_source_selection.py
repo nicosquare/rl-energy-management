@@ -34,7 +34,7 @@ class MGSourceSelection(Env):
         state, cost = self.mg.operation_by_source_selection(action=action)
         self.state = state
         self.reward = -cost
-        self.done = self.mg.get_current_step() == 24 * 365 - 1  # End of a year
+        self.done = False
         self.info = {}
 
         return self.state, self.reward, self.done, self.info

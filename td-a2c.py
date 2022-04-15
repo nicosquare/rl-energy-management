@@ -7,7 +7,6 @@
     Credits: Rubén Soloazabal, MBZUAI, Optim-Lab
 
 """
-
 import os
 import numpy as np
 import torch
@@ -120,6 +119,10 @@ class A2CAgent:
 
         return state
 
+    def env_restore(self, time_step: int):
+        self.total_step = time_step
+        self.env.restore(time_step=time_step)
+
     def select_action(self, state):
         """Select an action from the input state."""
 
@@ -208,35 +211,74 @@ class A2CAgent:
 
 if __name__ == '__main__':
 
+    '''
+        Define the simulation parameters
+    '''
+
+    num_frames = 24 * 30 * 12  # Hours * Days * Months
+    agent_gamma = 0.99
+    agent_entropy_weight = 1e-2
+    agent_n_steps = 5
+    agent_learning_rate = 4e-4
+    num_frames_to_test = 24 * 30 * 1  # Hours * Days * Months
     test_batch = 5
-    num_frames = 24 * 30 * 2  # Hours * Days * Months
-    test_gamma = 0.99
-    test_entropy_weight = 1e-2
-    test_n_steps = 5
-    test_learning_rate = 4e-4
+    num_frames_per_trajectory = 24 * 30 * 1  # Hours * Days * Months
+
+    '''
+        Setup all the configurations for Wandb
+    '''
 
     wandb.init(
         project="td-a2c-mg-set-gen",
         entity="madog",
         config={
-            "batch": test_batch,
             "num_frames": num_frames,
-            "gamma": test_gamma,
-            "entropy_weight": test_entropy_weight,
-            "n_steps": test_n_steps,
-            "learning_rate": test_learning_rate,
+            "gamma": agent_gamma,
+            "entropy_weight": agent_entropy_weight,
+            "n_steps": agent_n_steps,
+            "learning_rate": agent_learning_rate,
+            "batch": test_batch,
+            "num_frames_to_test": num_frames_to_test,
+            "num_frames_per_trajectory": num_frames_per_trajectory,
         }
     )
+
+    # Define the custom x-axis metric
+    wandb.define_metric("current_t")
+
+    # Define which metrics to plot against that x-axis (avoids the issue with Wandb step autoincrement on each log call)
+
+    wandb.define_metric("load", step_metric='current_t')
+    wandb.define_metric("pv", step_metric='current_t')
+    wandb.define_metric("generator", step_metric='current_t')
+    wandb.define_metric("remaining_power", step_metric='current_t')
+    wandb.define_metric("soc", step_metric='current_t')
+    wandb.define_metric("cap_to_charge", step_metric='current_t')
+    wandb.define_metric("cap_to_discharge", step_metric='current_t')
+    wandb.define_metric("p_charge", step_metric='current_t')
+    wandb.define_metric("p_discharge", step_metric='current_t')
+    wandb.define_metric("load", step_metric='current_t')
+    wandb.define_metric("cost", step_metric='current_t')
+    wandb.define_metric("reward", step_metric='current_t')
+    wandb.define_metric("action", step_metric='current_t')
+    wandb.define_metric("actor_loss", step_metric='current_t')
+    wandb.define_metric("critic_loss", step_metric='current_t')
+    wandb.define_metric("loss", step_metric='current_t')
+    wandb.define_metric("test_batch_reward", step_metric='current_t')
+
+    '''
+        Run the simulator
+    '''
 
     set_all_seeds(420)
 
     # Instantiate the environment
 
-    myEnv = MGSetGenerator()
+    mg_env = MGSetGenerator()
 
     # Instantiate the agent
     agent = A2CAgent(
-        env=myEnv, gamma=test_gamma, entropy_weight=test_entropy_weight, n_steps=test_n_steps, lr=test_learning_rate
+        env=mg_env, gamma=agent_gamma, entropy_weight=agent_entropy_weight, n_steps=agent_n_steps, lr=agent_learning_rate
     )
 
     """Train the agent"""
@@ -279,17 +321,25 @@ if __name__ == '__main__':
 
         policy_updates += 1
 
-        # Test policy each 30 days approx. (depends on the test_n_steps value, it should be less than 30).
+        # Test current policy with a batch of trajectories
 
-        if policy_updates % floor(30 * 24 / test_n_steps) == 0:
+        if policy_updates % num_frames_to_test == 0:
             sc = []
+
+            # Save current time step to continue where it was after testing
+
+            training_current_t = agent.total_step
+            agent.env.set_logging(enabled=False)
+
             for i in range(test_batch):
 
                 agent_done = False
                 agent_state = agent.env_reset()
                 agent_rewards = []
 
-                for _ in range(num_frames):
+                # Test with trajectories of a year. If less than a year of num_frames size
+
+                for _ in range(num_frames_per_trajectory):
 
                     agent_state = torch.tensor(agent_state).to(device)
                     agent_action = agent.select_action(agent_state)
@@ -306,6 +356,11 @@ if __name__ == '__main__':
             wandb.log({
                 "test_batch_reward": scores[-1],
             })
+
+            # Restore the agent current time step to continue with the training
+
+            agent.env_restore(training_current_t)
+            agent.env.set_logging(enabled=True)
 
     # Finish Wandb process when finishing
 

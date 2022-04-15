@@ -10,10 +10,12 @@ inf = np.float64('inf')
 
 class MGSetGenerator(Env):
 
-    def __init__(self):
+    def __init__(self, logging: bool = True):
         """
-        Gym environment to simulate a Microgrid
+        Gym environment to simulate a Microgrid scenario
         """
+
+        self.logging = logging
         self.state, self.reward, self.done, self.info = None, None, None, None
 
         """
@@ -54,7 +56,7 @@ class MGSetGenerator(Env):
         return self.mg.observe_by_setting_generator()
 
     def step(self, action):
-        state, cost = self.mg.operation_by_setting_generator(power_rate=action.item())
+        state, cost = self.mg.operation_by_setting_generator(power_rate=action.item(), logging=self.logging)
         self.state = state
         self.reward = -cost
         self.done = False
@@ -68,3 +70,9 @@ class MGSetGenerator(Env):
 
     def render(self, mode="human"):
         print('TODO')
+
+    def set_logging(self, enabled: bool):
+        self.logging = enabled
+
+    def restore(self, time_step: int):
+        self.mg.set_current_step(time_step=time_step)

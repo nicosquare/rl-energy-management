@@ -188,7 +188,7 @@ class Microgrid:
 
         return np.array([soc, ghi, pressure, wind_speed, air_temperature, relative_humidity])
 
-    def operation_by_setting_generator(self, power_rate: float) -> (np.ndarray, float):
+    def operation_by_setting_generator(self, power_rate: float, logging: bool = True) -> (np.ndarray, float):
 
         load = self._load.get_step_load(self.get_current_step())
         pv = self._pv.get_step_generation(self.get_current_step())
@@ -205,18 +205,21 @@ class Microgrid:
 
         cost = (generator - p_discharge) * self._generator.fuel_cost
 
-        wandb.log({
-            'load': load,
-            'pv': pv,
-            'generator': generator,
-            'remaining_power': remaining_power,
-            'soc': self._battery.soc,
-            'cap_to_charge': self._battery.capacity_to_charge,
-            'cap_to_discharge': self._battery.capacity_to_discharge,
-            'p_charge': p_charge,
-            'p_discharge': p_discharge,
-            'cost': cost
-        })
+        if logging:
+
+            wandb.log({
+                'current_t': self._current_t,
+                'load': load,
+                'pv': pv,
+                'generator': generator,
+                'remaining_power': remaining_power,
+                'soc': self._battery.soc,
+                'cap_to_charge': self._battery.capacity_to_charge,
+                'cap_to_discharge': self._battery.capacity_to_discharge,
+                'p_charge': p_charge,
+                'p_discharge': p_discharge,
+                'cost': cost
+            })
 
         # Increase time step
 
@@ -233,6 +236,16 @@ class Microgrid:
                 Current microgrid time step
         """
         return self._current_t % 8760
+
+    def set_current_step(self, time_step: int):
+        """
+            Set the time step to a certain point
+        Parameters
+        ----------
+        time_step: int
+            Value of the time step.
+        """
+        self._current_t = time_step
 
     def reset_current_step(self):
         """
