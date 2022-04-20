@@ -201,9 +201,23 @@ class Microgrid:
 
         p_charge, p_discharge, _ = self._battery.check_battery_constraints(remaining_power=remaining_power)
 
-        # Compute grid operation cost
+        # Check if all the energy is attended
 
-        cost = (generator - p_discharge) * self._generator.fuel_cost
+        unattended_power = 0
+
+        if p_discharge != 0:  # The battery is discharging to support the generator
+
+            # Check if there is unattended power, remaining power is assumed negative as the battery is discharging
+
+            power_after_battery = remaining_power + p_discharge
+
+            if power_after_battery < 0:
+
+                unattended_power = abs(power_after_battery)
+
+        # Compute grid operation cost, unattended power is penalized with more expensive fuel
+
+        cost = (generator - p_discharge + unattended_power*1.5) * self._generator.fuel_cost
 
         if logging:
 
@@ -213,6 +227,7 @@ class Microgrid:
                 'pv': pv,
                 'generator': generator,
                 'remaining_power': remaining_power,
+                'unattended_power': unattended_power,
                 'soc': self._battery.soc,
                 'cap_to_charge': self._battery.capacity_to_charge,
                 'cap_to_discharge': self._battery.capacity_to_discharge,

@@ -49,7 +49,7 @@ class Actor(Module):
             ReLU(),
             Linear(hidden_size, hidden_size),
             Sigmoid(),
-            Linear(hidden_size, num_actions)  # Mu layer
+            Linear(hidden_size, num_actions)
         )
 
     def forward(self, state: Tensor) -> Normal:
@@ -101,7 +101,7 @@ class A2CAgent:
         self.state = None
 
         # optimizer
-        self.optimizer = optim.Adam(self.actor.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.actor.parameters(), lr=lr)  # Optimize the critic too, diff lr
 
         # transition (state, log_prob, next_state, reward, done)
         self.transitions: list = list()
@@ -162,7 +162,7 @@ class A2CAgent:
             if not self.is_test:
                 self.transitions[-1].extend(value)
 
-            next_state, reward, done = agent.step(action)
+            next_state, reward, done = self.step(action)
 
             wandb.log({
                 "reward": reward,
@@ -174,9 +174,9 @@ class A2CAgent:
                 self.env_reset()
 
         # Update number of steps
-        agent.total_step += self.n_steps
+        self.total_step += self.n_steps
 
-        return agent.transitions
+        return self.transitions
 
     def returns_and_advantages(self, transitions):
         """Returns and advantages."""
@@ -254,6 +254,7 @@ if __name__ == '__main__':
         wandb.define_metric("pv", step_metric='current_t')
         wandb.define_metric("generator", step_metric='current_t')
         wandb.define_metric("remaining_power", step_metric='current_t')
+        wandb.define_metric("unattended_power", step_metric='current_t')
         wandb.define_metric("soc", step_metric='current_t')
         wandb.define_metric("cap_to_charge", step_metric='current_t')
         wandb.define_metric("cap_to_discharge", step_metric='current_t')
@@ -280,7 +281,8 @@ if __name__ == '__main__':
 
         # Instantiate the agent
         agent = A2CAgent(
-            env=mg_env, gamma=agent_gamma, entropy_weight=agent_entropy_weight, n_steps=agent_n_steps, lr=agent_learning_rate
+            env=mg_env, gamma=agent_gamma, entropy_weight=agent_entropy_weight, n_steps=agent_n_steps,
+            lr=agent_learning_rate
         )
 
         """Train the agent"""
@@ -342,7 +344,6 @@ if __name__ == '__main__':
                     # Test with trajectories of a year. If less than a year of num_frames size
 
                     for _ in range(num_frames_per_trajectory):
-
                         agent_state = torch.tensor(agent_state).to(device)
                         agent_action = agent.select_action(agent_state)
                         agen_next_state, agent_reward, agent_done = agent.step(agent_action)
