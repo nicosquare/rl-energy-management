@@ -3,6 +3,7 @@ import numpy as np
 
 from pandas import DataFrame
 from typing import TypedDict
+
 from .pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
 from .load import LoadProfile, LoadTypes, LoadParameters
 from .battery import Battery, BatteryParameters
@@ -217,7 +218,7 @@ class Microgrid:
 
         # Compute grid operation cost, unattended power is penalized with more expensive fuel
 
-        cost = (generator - p_discharge + unattended_power*1.5) * self._generator.fuel_cost
+        cost = (generator - p_discharge + unattended_power * 1.5) * self._generator.fuel_cost
 
         if logging:
 
