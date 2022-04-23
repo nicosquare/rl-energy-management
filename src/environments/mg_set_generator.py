@@ -39,14 +39,13 @@ class MGSetGenerator(Env):
 
         """
         Action space is a single continuous value defined by a Normal distribution with two parameters (actions):
-            mu: Mean of the normal distribution
-            sigma: Standard deviation of the normal distribution
+            fossil generator power: Value between 0 and 1 that indicates the rate of the nominal power it should use.
         """
 
         self.action_space = Box(
             low=0,
             high=1,
-            shape=(2,),
+            shape=(1,),
             dtype=np.float32
         )
 

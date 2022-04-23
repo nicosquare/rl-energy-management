@@ -15,7 +15,6 @@ import torch.nn.functional as func
 import torch.optim as optim
 
 from typing import Tuple
-from math import floor
 from torch import clamp, Tensor
 from torch.nn import ReLU, Linear, Module, Sequential, Sigmoid
 from torch.distributions import Normal
