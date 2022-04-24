@@ -1,17 +1,17 @@
-import wandb
+import torch
 import numpy as np
 
-from pandas import DataFrame
 from typing import TypedDict
+from torch import Tensor
 
-from .pv import PVGeneration, PVParameters, Coordinates, PVCharacteristics
-from .load import LoadProfile, LoadTypes, LoadParameters
+from .pv import PVGeneration, PVParameters
+from .load import LoadProfile, LoadParameters
 from .battery import Battery, BatteryParameters
 from .generator import Generator, GeneratorParameters
 from .grid import Grid, GridParameters
 
 
-class Architecture(TypedDict):
+class MicrogridArchitecture(TypedDict):
     pv: bool
     battery: bool
     generator: bool
@@ -30,65 +30,52 @@ class MicrogridAction(TypedDict):
     use_pv: bool
     use_generator: bool
     use_grid: bool
-    # charge_battery: bool TODO: Include battery operation
+    charge_battery: bool
 
 
 class Microgrid:
 
-    def __init__(self, architecture=None, parameters=None):
+    def __init__(self, batch_size: int, arch: MicrogridArchitecture = None, params: MicrogridParameters = None):
         """
 
         Parameters
         ----------
-        architecture : Architecture
+        batch_size: int
+            Number of parallel runs of the current microgrid.
+        arch : MicrogridArchitecture
             Dict indicating whether a microgrid contains a resource or not.
-        parameters : MicrogridParameters
+        params : MicrogridParameters
             Dict of parameters for the components of the microgrid.
         """
 
         # Check empty parameters configuration
 
-        if architecture is None:
-            architecture = {
+        if arch is None:
+            arch = {
                 'pv': True,
                 'battery': True,
                 'generator': True,
                 'grid': True
             }
 
-        if parameters is None:
-            parameters = {
-                'pv': self.get_default_pv_params(),
-                'load': self.get_default_load_params(),
-                'battery': self.get_default_battery_params(),
-                'generator': self.get_default_generator_params(),
-                'grid': self.get_default_grid_params()
-            }
-
         # Initialize the class attributes
 
-        self.architecture = architecture
-        self.parameters = parameters
+        self.batch_size = batch_size
+        self.architecture = arch
         self._current_t = 0
 
         # Configure the microgrid
 
-        self._load = LoadProfile(parameters=parameters['load'])
-        if architecture['pv']:
-            self._pv = PVGeneration(parameters=parameters['pv'])
+        self._load = LoadProfile(params=params['load'] if params is not None else None)
+        if arch['pv']:
+            self._pv = PVGeneration(params=params['pv'] if params is not None else None)
             self._pv.configure_pv_system()
-        if architecture['battery']:
-            self._battery = Battery(parameters=parameters['battery'])
-        if architecture['generator']:
-            self._generator = Generator(parameters=parameters['generator'])
-        if architecture['grid']:
-            self._grid = Grid(parameters=parameters['grid'])
-
-        # Configure historic data DataFrames
-
-        self._actions_history = DataFrame([])
-        self._status_history = DataFrame([])
-        self._cost_history = DataFrame([])
+        if arch['battery']:
+            self._battery = Battery(batch_size=batch_size, params=params['battery'] if params is not None else None)
+        if arch['generator']:
+            self._generator = Generator(parameters=params['generator'] if params is not None else None)
+        if arch['grid']:
+            self._grid = Grid(parameters=params['grid'] if params is not None else None)
 
     def observe_by_source_selection(self) -> np.ndarray:
         load_t = self._load.get_step_load(self.get_current_step())
@@ -108,7 +95,8 @@ class Microgrid:
         action = MicrogridAction(
             use_pv=binary_action[0],
             use_grid=binary_action[1],
-            use_generator=binary_action[2]
+            use_generator=binary_action[2],
+            charge_battery=False
         )
 
         load, pv = self.observe_by_source_selection()
@@ -178,7 +166,9 @@ class Microgrid:
 
         return self.observe_by_source_selection(), cost
 
-    def observe_by_setting_generator(self) -> np.ndarray:
+    def observe_by_setting_generator(self) -> Tensor:
+
+        # Get the observations
 
         soc = self._battery.soc
         ghi = self._pv.get_ghi(self.get_current_step())
@@ -187,55 +177,37 @@ class Microgrid:
         air_temperature = self._pv.get_air_temperature(self.get_current_step())
         relative_humidity = self._pv.get_relative_humidity(self.get_current_step())
 
-        return np.array([soc, ghi, pressure, wind_speed, air_temperature, relative_humidity])
+        # The only observation that could change depending on the action is the SoC
 
-    def operation_by_setting_generator(self, power_rate: float, logging: bool = True) -> (np.ndarray, float):
+        return torch.stack((
+            soc,
+            torch.ones(len(soc)) * ghi,
+            torch.ones(len(soc)) * pressure,
+            torch.ones(len(soc)) * wind_speed,
+            torch.ones(len(soc)) * air_temperature,
+            torch.ones(len(soc)) * relative_humidity,
+        ), dim=0).T
+
+    def operation_by_setting_generator(self, power_rate: Tensor) -> (np.ndarray, float):
 
         load = self._load.get_step_load(self.get_current_step())
         pv = self._pv.get_step_generation(self.get_current_step())
-        # grid = 0.0 - TODO: Include grid in this setting
-        generator = self._generator.check_generator_constraints(power_rate=power_rate)
+        generator = self._generator.check_constraints(input_rate=power_rate)
 
         # Decide the interaction with the battery
 
         remaining_power = generator + pv - load
 
-        p_charge, p_discharge, _ = self._battery.check_battery_constraints(remaining_power=remaining_power)
+        p_charge, p_discharge, _ = self._battery.check_battery_constraints(input_power=remaining_power)
 
         # Check if all the energy is attended
 
-        unattended_power = 0
-
-        if p_discharge != 0:  # The battery is discharging to support the generator
-
-            # Check if there is unattended power, remaining power is assumed negative as the battery is discharging
-
-            power_after_battery = remaining_power + p_discharge
-
-            if power_after_battery < 0:
-
-                unattended_power = abs(power_after_battery)
+        power_after_battery = remaining_power + p_discharge
+        unattended_power = torch.maximum(-power_after_battery, torch.zeros(self.batch_size))
 
         # Compute grid operation cost, unattended power is penalized with more expensive fuel
 
         cost = (generator - p_discharge + unattended_power * 1.5) * self._generator.fuel_cost
-
-        if logging:
-
-            wandb.log({
-                'current_t': self._current_t,
-                'load': load,
-                'pv': pv,
-                'generator': generator,
-                'remaining_power': remaining_power,
-                'unattended_power': unattended_power,
-                'soc': self._battery.soc,
-                'cap_to_charge': self._battery.capacity_to_charge,
-                'cap_to_discharge': self._battery.capacity_to_discharge,
-                'p_charge': p_charge,
-                'p_discharge': p_discharge,
-                'cost': cost
-            })
 
         # Increase time step
 
@@ -253,16 +225,6 @@ class Microgrid:
         """
         return self._current_t % 8760
 
-    def set_current_step(self, time_step: int):
-        """
-            Set the time step to a certain point
-        Parameters
-        ----------
-        time_step: int
-            Value of the time step.
-        """
-        self._current_t = time_step
-
     def reset_current_step(self):
         """
             Resets the current time step.
@@ -271,67 +233,3 @@ class Microgrid:
             None
         """
         self._current_t = 0
-
-    @staticmethod
-    def get_default_pv_params() -> PVParameters:
-        return PVParameters(
-            coordinates=Coordinates(
-                latitude=24.4274827,
-                longitude=54.6234876,
-                name='Masdar',
-                altitude=0,
-                timezone='Asia/Dubai'
-            ),
-            pv_parameters=PVCharacteristics(
-                n_arrays=1,
-                modules_per_string=10,
-                n_strings=1,
-                surface_tilt=20,
-                surface_azimuth=180,
-                solar_panel_ref='Canadian_Solar_CS5P_220M___2009_',
-                inverter_ref='iPower__SHO_5_2__240V_'
-            ),
-            year=2022
-        )
-
-    @staticmethod
-    def get_default_load_params():
-        return LoadParameters(
-            load_type='residential_1'
-        )
-
-    @staticmethod
-    def get_default_battery_params():
-        return BatteryParameters(
-            soc=0.1,
-            soc_max=0.9,
-            soc_min=0.1,
-            p_charge_max=0.5,
-            p_discharge_max=0.5,
-            efficiency=0.9,
-            cost_cycle=0.04,
-            capacity=4,
-            capacity_to_charge=3.2,
-            capacity_to_discharge=0
-        )
-
-    @staticmethod
-    def get_default_generator_params():
-        return GeneratorParameters(
-            rated_power=2.5,
-            p_max=0.9,
-            p_min=0.1,
-            fuel_cost=0.4,
-            co2=2
-        )
-
-    @staticmethod
-    def get_default_grid_params():
-        return GridParameters(
-            max_export=50,
-            max_import=50,
-            price_export=0.01,
-            price_import=0.08,
-            status=True,
-            co2=2
-        )

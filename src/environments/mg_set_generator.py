@@ -2,21 +2,19 @@ import numpy as np
 
 from gym import Env
 from gym.spaces import Box
+from torch import Tensor
 
-from src.components.microgrid import Microgrid
+from src.components.microgrid import Microgrid, MicrogridArchitecture, MicrogridParameters
 
 inf = np.float64('inf')
 
 
 class MGSetGenerator(Env):
 
-    def __init__(self, logging: bool = True):
+    def __init__(self, mg_arch: MicrogridArchitecture, mg_params: MicrogridParameters, batch_size: int = 1):
         """
         Gym environment to simulate a Microgrid scenario
         """
-
-        self.logging = logging
-        self.state, self.reward, self.done, self.info = None, None, None, None
 
         """
         Observation space is composed by:
@@ -49,29 +47,24 @@ class MGSetGenerator(Env):
             dtype=np.float32
         )
 
-        self.mg = Microgrid()
+        self.mg = Microgrid(batch_size=batch_size, arch=mg_arch, params=mg_params)
 
     def _observe(self):
         return self.mg.observe_by_setting_generator()
 
-    def step(self, action):
-        state, cost = self.mg.operation_by_setting_generator(power_rate=action.item(), logging=self.logging)
-        self.state = state
-        self.reward = -cost
-        self.done = False
-        self.info = {}
+    def step(self, action: Tensor):
+        state, cost = self.mg.operation_by_setting_generator(power_rate=action)
 
-        return self.state, self.reward, self.done, self.info
+        state = state
+        reward = -cost
+        done = False
+        info = {}
+
+        return state, reward, done, info
 
     def reset(self):
         self.mg.reset_current_step()
         return self._observe(), 0, False, {}
 
     def render(self, mode="human"):
-        print('TODO')
-
-    def set_logging(self, enabled: bool):
-        self.logging = enabled
-
-    def restore(self, time_step: int):
-        self.mg.set_current_step(time_step=time_step)
+        print('Rendering not defined yet')

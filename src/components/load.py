@@ -19,14 +19,14 @@ class LoadParameters(TypedDict):
 
 class LoadProfile:
 
-    def __init__(self, parameters=None):
+    def __init__(self, params=None):
         """
 
         Represents the load of an energy user of a defined type in kW
 
         Parameters
         ----------
-        parameters : LoadParameters
+        params : LoadParameters
 
             Dict of configurations with the following shape:
 
@@ -38,12 +38,12 @@ class LoadProfile:
 
         # Check empty parameters configuration
 
-        if parameters is None:
-            parameters = LoadParameters(load_type='residential_1')
+        if params is None:
+            params = LoadParameters(load_type='residential_1')
 
         # Initialize the class attributes
 
-        self.load_type = parameters['load_type']
+        self.load_type = params['load_type']
         self._load_ts = self._get_year_data()
 
     def _get_year_data(self):

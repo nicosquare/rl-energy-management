@@ -56,14 +56,14 @@ class PVParameters(TypedDict):
 
 class PVGeneration:
 
-    def __init__(self, parameters=None):
+    def __init__(self, params=None):
         """
 
         This represents a PV generation system located in a particular location in a defined year.
 
         Parameters
         ----------
-        parameters: PVParameters
+        params: PVParameters
 
             Dict of configurations with the following shape:
 
@@ -75,14 +75,32 @@ class PVGeneration:
         """
         # Check empty parameters configuration
 
-        if parameters is None:
-            parameters = {}
+        if params is None:
+            params = PVParameters(
+                coordinates=Coordinates(
+                    latitude=24.4274827,
+                    longitude=54.6234876,
+                    name='Masdar',
+                    altitude=0,
+                    timezone='Asia/Dubai'
+                ),
+                pv_parameters=PVCharacteristics(
+                    n_arrays=1,
+                    modules_per_string=10,
+                    n_strings=1,
+                    surface_tilt=20,
+                    surface_azimuth=180,
+                    solar_panel_ref='Canadian_Solar_CS5P_220M___2009_',
+                    inverter_ref='iPower__SHO_5_2__240V_'
+                ),
+                year=2022
+            )
 
         # Initialize the class attributes
 
-        self.coordinates = parameters['coordinates']
-        self.pv_parameters = parameters['pv_parameters']
-        self.year = parameters['year']
+        self.coordinates = params['coordinates']
+        self.pv_parameters = params['pv_parameters']
+        self.year = params['year']
         self._model_chain = None
         self._weather_ts = None
         self._generation_ts = None
@@ -104,7 +122,7 @@ class PVGeneration:
         surface_azimuth = self.pv_parameters['surface_azimuth']
         solar_panel_ref = self.pv_parameters['solar_panel_ref']
         inverter_ref = self.pv_parameters['inverter_ref']
-        
+
         # Configure the solar panel and inverter specifications from SAM (Default)
 
         sandia_modules = pvlib.pvsystem.retrieve_sam('sandiamod')

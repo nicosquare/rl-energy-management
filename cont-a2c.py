@@ -17,6 +17,12 @@ from torch.optim import Adam
 from torch.distributions import Normal
 from dotenv import load_dotenv
 
+from src.components.pv import PVParameters, Coordinates, PVCharacteristics
+from src.components.load import LoadProfile, LoadTypes, LoadParameters
+from src.components.battery import Battery, BatteryParameters
+from src.components.generator import Generator, GeneratorParameters
+from src.components.microgrid import MicrogridArchitecture, MicrogridParameters
+
 from src.environments.mg_set_generator import MGSetGenerator
 
 torch.set_default_dtype(torch.float64)
@@ -56,7 +62,10 @@ class Actor(Module):
         )
 
     def forward(self, state: Tensor) -> (Tensor, Tensor):
-        mu, sigma = self.model(state)
+        normal_params = self.model(state)
+
+        mu = normal_params[:, 0]
+        sigma = normal_params[:, 1]
 
         # Guarantee that the standard deviation is not negative
 
@@ -94,7 +103,6 @@ class Agent:
         self.env = env
         self.gamma = gamma
         self.rollout_steps = rollout_steps
-        self.current_state = None
 
         # Configure neural networks
 
@@ -106,10 +114,6 @@ class Agent:
 
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=actor_lr)
         self.critic.optimizer = Adam(params=self.critic.parameters(), lr=critic_lr)
-
-        # Set initial conditions
-
-        self.state, _, _, _ = self.env.reset()
 
         # Hooks into the models to collect gradients and topology
 
@@ -128,20 +132,19 @@ class Agent:
 
         states, rewards, log_probs = [], [], []
 
-        # Perform the rollouts
+        # Get the initial state by resetting the environment
+
+        state, _, _, _ = self.env.reset()
 
         for step in range(self.rollout_steps):
-            states.append(self.state)
+            # Start by appending the state to create the states trajectory
+
+            states.append(state)
 
             # Perform action and pass to next state
 
-            action, log_prob = self.select_action(Tensor(self.state))
-            self.state, reward, _, _ = self.env.step(action=action)
-
-            wandb.log({
-                "reward": reward,
-                "action": action
-            })
+            action, log_prob = self.select_action(Tensor(state))
+            state, reward, _, _ = self.env.step(action=action)
 
             rewards.append(reward)
             log_probs.append(log_prob)
@@ -155,26 +158,27 @@ class Agent:
 
             states, rewards, log_probs = self.rollout()
 
-            sum_rewards = np.sum(rewards)
-            sum_log_probs = torch.sum(torch.cat([log_prob.unsqueeze(0) for log_prob in log_probs]))
+            sum_rewards = np.sum(rewards, 0)
+            sum_log_probs = torch.sum(torch.stack(log_probs, 0))
 
             value = self.critic(Tensor(states[0]))
 
             # Backpropagation to train Actor NN
 
-            actor_loss = - sum_log_probs * (sum_rewards - value.detach())
+            actor_loss = -torch.mean(sum_log_probs * (sum_rewards - value.detach()))
             self.actor.optimizer.zero_grad()
             actor_loss.backward()
             self.actor.optimizer.step()
 
             # Backpropagation to train Critic NN
 
-            critic_loss = (value - sum_rewards) ** 2
+            critic_loss = torch.mean((value - sum_rewards) ** 2)
             self.critic.optimizer.zero_grad()
             critic_loss.backward()
             self.critic.optimizer.step()
 
             wandb.log({
+                "reward": torch.mean(sum_rewards),
                 "actor_loss": actor_loss,
                 "critic_loss": critic_loss
             })
@@ -184,12 +188,71 @@ if __name__ == '__main__':
 
     try:
         '''
+            Define the Microgrid parameters
+        '''
+
+        exp_pv_params = PVParameters(
+            coordinates=Coordinates(
+                latitude=24.4274827,
+                longitude=54.6234876,
+                name='Masdar',
+                altitude=0,
+                timezone='Asia/Dubai'
+            ),
+            pv_parameters=PVCharacteristics(
+                n_arrays=1,
+                modules_per_string=10,
+                n_strings=1,
+                surface_tilt=20,
+                surface_azimuth=180,
+                solar_panel_ref='Canadian_Solar_CS5P_220M___2009_',
+                inverter_ref='iPower__SHO_5_2__240V_'
+            ),
+            year=2022
+        )
+        exp_load_params = LoadParameters(load_type='residential_1')
+        exp_battery_params = BatteryParameters(
+            soc_0=0.1,
+            soc_max=0.9,
+            soc_min=0.1,
+            p_charge_max=0.5,
+            p_discharge_max=0.5,
+            efficiency=0.9,
+            cost_cycle=0.04,
+            capacity=4
+        )
+
+        exp_generator_params = GeneratorParameters(
+            rated_power=2.5,
+            p_max=0.9,
+            p_min=0.1,
+            fuel_cost=0.4,
+            co2=2
+        )
+
+        exp_microgrid_arch = MicrogridArchitecture(
+            pv=True,
+            battery=True,
+            generator=True,
+            grid=False
+        )
+
+        exp_microgrid_params = MicrogridParameters(
+            pv=exp_pv_params,
+            load=exp_load_params,
+            battery=exp_battery_params,
+            generator=exp_generator_params,
+            grid=None
+        )
+
+        '''
             Define the simulation parameters
         '''
 
+        batch_size = 3
         agent_training_steps = 1000
         agent_gamma = 0.99
-        agent_rollout_steps = 24 * 30 * 12  # Hours * Days * Months
+        agent_rollout_steps = 24 * 365  # Hours * Days
         agent_actor_lr = 1e-4
         agent_critic_lr = 1e-4
 
@@ -201,35 +264,14 @@ if __name__ == '__main__':
             project="cont-a2c-mg-set-gen",
             entity="madog",
             config={
-                "num_frames": agent_training_steps,
+                "batch_size": batch_size,
+                "training_steps": agent_training_steps,
                 "gamma": agent_gamma,
-                "n_steps": agent_rollout_steps,
+                "rollout_steps": agent_rollout_steps,
                 "agent_actor_lr": agent_actor_lr,
                 "agent_critic_lr": agent_critic_lr,
             }
         )
-
-        # Define the custom x-axis metric
-        wandb.define_metric("current_t")
-
-        # Define the x-axis for the plots: (avoids an issue with Wandb step autoincrement on each log call)
-
-        wandb.define_metric("load", step_metric='current_t')
-        wandb.define_metric("pv", step_metric='current_t')
-        wandb.define_metric("generator", step_metric='current_t')
-        wandb.define_metric("remaining_power", step_metric='current_t')
-        wandb.define_metric("unattended_power", step_metric='current_t')
-        wandb.define_metric("soc", step_metric='current_t')
-        wandb.define_metric("cap_to_charge", step_metric='current_t')
-        wandb.define_metric("cap_to_discharge", step_metric='current_t')
-        wandb.define_metric("p_charge", step_metric='current_t')
-        wandb.define_metric("p_discharge", step_metric='current_t')
-        wandb.define_metric("load", step_metric='current_t')
-        wandb.define_metric("cost", step_metric='current_t')
-        wandb.define_metric("reward", step_metric='current_t')
-        wandb.define_metric("action", step_metric='current_t')
-        wandb.define_metric("actor_loss", step_metric='current_t')
-        wandb.define_metric("critic_loss", step_metric='current_t')
 
         '''
             Run the simulator
@@ -239,7 +281,7 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        mg_env = MGSetGenerator()
+        mg_env = MGSetGenerator(mg_arch=exp_microgrid_arch, mg_params=exp_microgrid_params, batch_size=batch_size)
 
         # Instantiate the agent
         agent = Agent(
@@ -250,6 +292,10 @@ if __name__ == '__main__':
         # Launch the training
 
         agent.train(training_steps=agent_training_steps)
+
+        # Finish wandb process
+
+        wandb.finish()
 
     except KeyboardInterrupt:
         wandb.finish()
