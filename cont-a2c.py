@@ -6,6 +6,7 @@
 
 """
 import os
+import traceback
 import numpy as np
 import torch
 import wandb
@@ -18,9 +19,9 @@ from torch.distributions import Normal
 from dotenv import load_dotenv
 
 from src.components.pv import PVParameters, Coordinates, PVCharacteristics
-from src.components.load import LoadProfile, LoadTypes, LoadParameters
-from src.components.battery import Battery, BatteryParameters
-from src.components.generator import Generator, GeneratorParameters
+from src.components.load import LoadParameters
+from src.components.battery import BatteryParameters
+from src.components.generator import GeneratorParameters
 from src.components.microgrid import MicrogridArchitecture, MicrogridParameters
 
 from src.environments.mg_set_generator import MGSetGenerator
@@ -109,8 +110,8 @@ class Agent:
         dim_obs = env.observation_space.shape[0]
         dim_action = env.action_space.shape[0]
 
-        self.actor = Actor(num_inputs=dim_obs, num_actions=dim_action, hidden_size=hidden_size)
-        self.critic = Critic(num_inputs=dim_obs, hidden_size=hidden_size)
+        self.actor = Actor(num_inputs=dim_obs, num_actions=dim_action, hidden_size=hidden_size).to(device)
+        self.critic = Critic(num_inputs=dim_obs, hidden_size=hidden_size).to(device)
 
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=actor_lr)
         self.critic.optimizer = Adam(params=self.critic.parameters(), lr=critic_lr)
@@ -139,6 +140,7 @@ class Agent:
         for step in range(self.rollout_steps):
             # Start by appending the state to create the states trajectory
 
+            state = state.to(device)
             states.append(state)
 
             # Perform action and pass to next state
@@ -154,18 +156,30 @@ class Agent:
     def train(self, training_steps: int = 1000):
 
         for step in range(training_steps):
+
             # Perform rollouts and sample trajectories
 
             states, rewards, log_probs = self.rollout()
 
-            sum_rewards = np.sum(rewards, 0)
-            sum_log_probs = torch.sum(torch.stack(log_probs, 0))
+            log_probs = torch.stack(log_probs, 0)
+            value = [self.critic(state) for state in states]
 
-            value = self.critic(Tensor(states[0]))
+            value = torch.stack(value, 0).squeeze()
+
+            # Causality trick
+
+            sum_rewards = []
+            causal_reward = 0
+
+            for reward in reversed(rewards):
+                causal_reward = torch.clone(causal_reward + reward)
+                sum_rewards.insert(0, causal_reward)
+
+            sum_rewards = torch.stack(sum_rewards, 0)
 
             # Backpropagation to train Actor NN
 
-            actor_loss = -torch.mean(sum_log_probs * (sum_rewards - value.detach()))
+            actor_loss = -torch.mean(torch.sum(log_probs * (sum_rewards - value.detach())))
             self.actor.optimizer.zero_grad()
             actor_loss.backward()
             self.actor.optimizer.step()
@@ -178,7 +192,7 @@ class Agent:
             self.critic.optimizer.step()
 
             wandb.log({
-                "reward": torch.mean(sum_rewards),
+                "rollout_avg_reward": torch.mean(sum_rewards),
                 "actor_loss": actor_loss,
                 "critic_loss": critic_loss
             })
@@ -218,8 +232,9 @@ if __name__ == '__main__':
             p_charge_max=0.5,
             p_discharge_max=0.5,
             efficiency=0.9,
-            cost_cycle=0.04,
-            capacity=4
+            capacity=4,
+            sell_price=0.6,
+            buy_price=0.6
         )
 
         exp_generator_params = GeneratorParameters(
@@ -249,12 +264,12 @@ if __name__ == '__main__':
             Define the simulation parameters
         '''
 
-        batch_size = 3
-        agent_training_steps = 1000
+        batch_size = 10
+        agent_training_steps = 10
         agent_gamma = 0.99
-        agent_rollout_steps = 24 * 365  # Hours * Days
-        agent_actor_lr = 1e-4
-        agent_critic_lr = 1e-4
+        agent_rollout_steps = 24 * 30  # Hours * Days
+        agent_actor_lr = 1e-3
+        agent_critic_lr = 1e-3
 
         '''
             Setup all the configurations for Wandb
@@ -272,6 +287,13 @@ if __name__ == '__main__':
                 "agent_critic_lr": agent_critic_lr,
             }
         )
+
+        # Define the custom x-axis metric
+        wandb.define_metric("test_step")
+
+        # Define the x-axis for the plots: (avoids an issue with Wandb step autoincrement on each log call)
+
+        wandb.define_metric("test_reward", step_metric='test_step')
 
         '''
             Run the simulator
@@ -293,9 +315,27 @@ if __name__ == '__main__':
 
         agent.train(training_steps=agent_training_steps)
 
+        # Test the trained model
+
+        t_state, _, _, _ = agent.env.reset()
+
+        for t_step in range(24 * 365):
+            # Perform action and pass to next state
+
+            t_action, _ = agent.select_action(Tensor(t_state))
+            t_state, t_reward, _, _ = agent.env.step(action=t_action)
+
+            wandb.log({
+                "test_step": t_step,
+                "test_action": t_action,
+                "test_reward": t_reward
+            })
+
         # Finish wandb process
 
         wandb.finish()
 
-    except KeyboardInterrupt:
+    except (RuntimeError, KeyboardInterrupt):
+
+        traceback.print_exc()
         wandb.finish()

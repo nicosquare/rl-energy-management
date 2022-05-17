@@ -9,6 +9,10 @@ from .load import LoadProfile, LoadParameters
 from .battery import Battery, BatteryParameters
 from .generator import Generator, GeneratorParameters
 from .grid import Grid, GridParameters
+from ..utils.tensors import create_ones_tensor, create_zeros_tensor
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+torch.set_default_dtype(torch.float64)
 
 
 class MicrogridArchitecture(TypedDict):
@@ -181,12 +185,12 @@ class Microgrid:
 
         return torch.stack((
             soc,
-            torch.ones(len(soc)) * ghi,
-            torch.ones(len(soc)) * pressure,
-            torch.ones(len(soc)) * wind_speed,
-            torch.ones(len(soc)) * air_temperature,
-            torch.ones(len(soc)) * relative_humidity,
-        ), dim=0).T
+            create_ones_tensor(len(soc)) * ghi,
+            create_ones_tensor(len(soc)) * pressure,
+            create_ones_tensor(len(soc)) * wind_speed,
+            create_ones_tensor(len(soc)) * air_temperature,
+            create_ones_tensor(len(soc)) * relative_humidity,
+        ), dim=1)
 
     def operation_by_setting_generator(self, power_rate: Tensor) -> (np.ndarray, float):
 
@@ -198,22 +202,27 @@ class Microgrid:
 
         remaining_power = generator + pv - load
 
-        p_charge, p_discharge, _ = self._battery.check_battery_constraints(input_power=remaining_power)
+        p_charge, p_discharge = self._battery.check_battery_constraints(input_power=remaining_power)
+        self._battery.compute_new_soc(p_charge=p_charge, p_discharge=p_discharge)
 
         # Check if all the energy is attended
 
         power_after_battery = remaining_power + p_discharge
-        unattended_power = torch.maximum(-power_after_battery, torch.zeros(self.batch_size))
+        unattended_power = torch.maximum(-power_after_battery, create_zeros_tensor(self.batch_size))
 
         # Compute grid operation cost, unattended power is penalized with more expensive fuel
 
         cost = (generator - p_discharge + unattended_power * 1.5) * self._generator.fuel_cost
 
+        # Compute next state
+
+        next_state = self.observe_by_setting_generator()
+
         # Increase time step
 
         self._current_t += 1
 
-        return self.observe_by_setting_generator(), cost
+        return next_state, cost
 
     def get_current_step(self):
         """

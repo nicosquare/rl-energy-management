@@ -7,6 +7,8 @@ from pvlib.pvsystem import PVSystem, FixedMount, Array
 from pvlib.location import Location
 from pvlib.modelchain import ModelChain
 
+from ..utils.values import normalize
+
 
 class Coordinates(TypedDict):
     latitude: float
@@ -273,106 +275,169 @@ class PVGeneration:
 
         return self._model_chain.results.ac
 
-    def get_ghi(self, time_step: int = 0):
+    def get_ghi(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Global Horizontal Irradiation at time current time step.
-        
+
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
+
         Returns
         -------
             ghi: float
                 Global Horizontal Irradiation.
         """
-        return self._weather_ts['ghi'][time_step]
+        value = self._weather_ts['ghi'][time_step]
+        max_value = self._weather_ts['ghi'].max()
+        min_value = self._weather_ts['ghi'].min()
 
-    def get_dni(self, time_step: int = 0):
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_dni(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Direct Normal Irradiation at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             dni: float
                 Direct Normal Irradiation.
         """
-        return self._weather_ts['dni'][time_step]
 
-    def get_dhi(self, time_step: int = 0):
+        value = self._weather_ts['dni'][time_step]
+        max_value = self._weather_ts['dni'].max()
+        min_value = self._weather_ts['dni'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_dhi(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Diffused Horizontal Irradiation at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             dhi: float
                 Diffused Horizontal Irradiation.
         """
-        return self._weather_ts['dhi'][time_step]
 
-    def get_air_temperature(self, time_step: int = 0):
+        value = self._weather_ts['dhi'][time_step]
+        max_value = self._weather_ts['dhi'].max()
+        min_value = self._weather_ts['dhi'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_air_temperature(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Air Temperature at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             air_temperature: float
                 Air Temperature.
         """
-        return self._weather_ts['temp_air'][time_step]
 
-    def get_wind_speed(self, time_step: int = 0):
+        value = self._weather_ts['temp_air'][time_step]
+        max_value = self._weather_ts['temp_air'].max()
+        min_value = self._weather_ts['temp_air'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_wind_speed(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Wind Speed at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             wind_speed: float
                 Wind Speed.
         """
-        return self._weather_ts['wind_speed'][time_step]
 
-    def get_relative_humidity(self, time_step: int = 0):
+        value = self._weather_ts['wind_speed'][time_step]
+        max_value = self._weather_ts['wind_speed'].max()
+        min_value = self._weather_ts['wind_speed'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_relative_humidity(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Relative Humidity at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             relative_humidity: float
                 Relative Humidity.
         """
-        return self._weather_ts['relative_humidity'][time_step]
 
-    def get_pressure(self, time_step: int = 0):
+        value = self._weather_ts['relative_humidity'][time_step]
+        max_value = self._weather_ts['relative_humidity'].max()
+        min_value = self._weather_ts['relative_humidity'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)
+
+    def get_pressure(self, time_step: int = 0, normalized: bool = True):
         """
 
         Get Pressure at time current time step.
 
+        Parameters
+        ----------
             time_step : int
                 Value of the required time step to get the value from.
+            normalized : bool
+                Return normalized value or not.
 
         Returns
         -------
             pressure: float
                 Pressure.
         """
-        return self._weather_ts['pressure'][time_step]
+
+        value = self._weather_ts['pressure'][time_step]
+        max_value = self._weather_ts['pressure'].max()
+        min_value = self._weather_ts['pressure'].min()
+
+        return value if not normalized else normalize(value, max_value, min_value)

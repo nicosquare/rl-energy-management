@@ -1,7 +1,13 @@
 import torch
+import numpy as np
 
 from torch import Tensor
 from typing import TypedDict
+
+from src.utils.tensors import create_zeros_tensor, create_ones_tensor
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+torch.set_default_dtype(torch.float64)
 
 
 class BatteryParameters(TypedDict):
@@ -21,8 +27,10 @@ class BatteryParameters(TypedDict):
         efficiency: float
             Value between 0 and 1 representing a one-way efficiency of the battery considering same efficiency for
             charging and discharging (%).
-        cost_cycle: float
-            Cost of completing an energy charging/discharging cycle (currency/kWh).
+        buy_price: float
+            Price for using energy from the battery ($/kWh).
+        sell_price: float
+            Price for injecting energy to the battery (reward to the prosumers).
     """
     soc_0: float
     capacity: int
@@ -31,7 +39,8 @@ class BatteryParameters(TypedDict):
     p_charge_max: float
     p_discharge_max: float
     efficiency: float
-    cost_cycle: float
+    buy_price: float
+    sell_price: float
 
 
 class Battery:
@@ -56,7 +65,8 @@ class Battery:
                     p_charge_max: float,
                     p_discharge_max: float,
                     efficiency: float,
-                    cost_cycle: float
+                    buy_price: float,
+                    sell_price: float,
                 }
 
         """
@@ -65,33 +75,58 @@ class Battery:
 
         if params is None:
             params = {
-                'soc_0': 0.0,
+                'soc_0': 0.1,
                 'capacity': 1.0,
                 'soc_max': 0.9,
                 'soc_min': 0.1,
                 'p_charge_max': 0.5,
                 'p_discharge_max': 0.5,
                 'efficiency': 0.9,
-                'cost_cycle': 1.0
+                'buy_price': 0.6,
+                'sell_price': 0.6
             }
 
         # Initialize the class attributes
 
         self.batch_size = batch_size
-        self.soc = torch.full((batch_size,), params['soc_0'])
+        self.soc_0 = params['soc_0']
         self.capacity = params['capacity']
         self.soc_max = params['soc_max']
         self.soc_min = params['soc_min']
         self.p_charge_max = params['p_charge_max']
         self.p_discharge_max = params['p_discharge_max']
         self.efficiency = params['efficiency']
-        self.cost_cycle = params['cost_cycle']
+        self.buy_price = params['buy_price']
+        self.sell_price = params['sell_price']
         self.capacity_to_charge = None
         self.capacity_to_discharge = None
+        self.soc = self.initialize_soc()
 
         # Initialize the capacity status
 
         self.compute_capacity_status()
+
+    def initialize_soc(self):
+        """
+            Initialize the SoC according to the batch size
+        :return:
+
+            init_values: Tensor:
+                Tensor with the initialization values.
+        """
+        return (Tensor([self.soc_0]) if self.batch_size == 1 else Tensor(
+            [np.random.uniform(low=self.soc_min, high=self.soc_max) for _ in range(self.batch_size)]
+        )).to(device)
+
+    def reset_battery(self):
+        """
+            Reset the battery to the initialization state.
+        :return:
+            None
+        """
+        self.soc = self.initialize_soc()
+        self.capacity_to_charge = None
+        self.capacity_to_discharge = None
 
     def compute_capacity_status(self):
         """
@@ -102,15 +137,15 @@ class Battery:
         """
         self.capacity_to_charge = torch.maximum(
             (self.soc_max * self.capacity - self.soc * self.capacity) / self.efficiency,
-            torch.zeros(self.batch_size)
+            create_zeros_tensor(size=self.batch_size)
         )
 
         self.capacity_to_discharge = torch.maximum(
             (self.soc * self.capacity - self.soc_min * self.capacity) / self.efficiency,
-            torch.zeros(self.batch_size)
+            create_zeros_tensor(size=self.batch_size)
         )
 
-    def check_battery_constraints(self, input_power: Tensor):
+    def check_battery_constraints(self, input_power: Tensor) -> (Tensor, Tensor):
         """
             Check the physical constrains of the battery to define the maximum power it can charge or discharge.
         Parameters
@@ -131,8 +166,8 @@ class Battery:
 
         # Initialize the charge and discharge power
 
-        p_charge = torch.maximum(input_power, torch.zeros(self.batch_size))
-        p_discharge = torch.maximum(-input_power, torch.zeros(self.batch_size))
+        p_charge = torch.maximum(input_power, create_zeros_tensor(size=self.batch_size)).to(device)
+        p_discharge = torch.maximum(-input_power, create_zeros_tensor(size=self.batch_size)).to(device)
 
         # Compute the capacities to charge or discharge
 
@@ -140,7 +175,10 @@ class Battery:
 
         # Check battery constraints
 
-        min_charge = torch.minimum(self.capacity_to_charge, torch.ones(self.batch_size) * self.p_charge_max)
+        min_charge = torch.minimum(
+            self.capacity_to_charge,
+            create_ones_tensor(size=self.batch_size) * self.p_charge_max
+        )
 
         p_charge = torch.where(
             p_charge > min_charge,
@@ -148,7 +186,10 @@ class Battery:
             p_charge
         )
 
-        max_discharge = torch.minimum(self.capacity_to_discharge, torch.ones(self.batch_size) * self.p_discharge_max)
+        max_discharge = torch.minimum(
+            self.capacity_to_discharge,
+            create_ones_tensor(size=self.batch_size) * self.p_discharge_max
+        )
 
         p_discharge = torch.where(
             p_discharge > max_discharge,
@@ -156,8 +197,14 @@ class Battery:
             p_discharge
         )
 
-        # Compute new SoC
+        return p_charge, p_discharge
 
-        self.soc = self.soc + (p_charge*self.efficiency - p_discharge/self.efficiency) / self.capacity
-
-        return p_charge, p_discharge, self.soc
+    def compute_new_soc(self, p_charge: Tensor, p_discharge: Tensor):
+        """
+            Compute the new SoC according to an instruction for charging/discharging.
+        :param p_charge: Tensor indicating the power of charge for the batch battery.
+        :param p_discharge: Tensor indicating the power of discharge for the batch battery.
+        :return:
+            None
+        """
+        self.soc = self.soc + (p_charge * self.efficiency - p_discharge / self.efficiency) / self.capacity

@@ -20,17 +20,17 @@ class MGSetGenerator(Env):
         Observation space is composed by:
         
             soc: [0,1]
-            ghi: [0, inf]
-            pressure: [0, inf]
-            wind_speed: [0, inf]
-            air_temperature: [-inf, inf]
-            relative_humidity = [0, inf]
+            ghi: [0, 1064.0] normalized
+            pressure: [98930.0, 102370.0] normalized
+            wind_speed: [0.17, 11.57] normalized
+            air_temperature: [10.67, 45.5] normalized
+            relative_humidity = [11.55, 94.0] normalized
         
         """
 
         self.observation_space = Box(
-            low=np.float32(np.array([0.0, 0.0, 0.0, 0.0, -inf, 0])),
-            high=np.float32(np.array([1.0, inf, inf, inf, inf, inf])),
+            low=np.float32(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0])),
+            high=np.float32(np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
             shape=(6,),
             dtype=np.float32
         )
