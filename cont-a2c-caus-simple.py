@@ -159,7 +159,7 @@ class Agent:
             states, rewards, log_probs = self.rollout()
 
             sum_rewards = torch.sum(torch.stack(rewards, dim=0), dim=0)
-            sum_log_probs = torch.sum(torch.stack(log_probs, dim=0), dim=0)
+            log_probs = torch.stack(log_probs, dim=0)
 
             value = [self.critic(state) for state in states]
 
@@ -178,7 +178,7 @@ class Agent:
 
             # Backpropagation to train Actor NN
 
-            actor_loss = -torch.mean(sum_log_probs * (sum_rewards - value.detach()))
+            actor_loss = -torch.mean(torch.sum(log_probs*(sum_rewards - value.detach()), dim=0))
             self.actor.optimizer.zero_grad()
             actor_loss.backward()
             self.actor.optimizer.step()
