@@ -5,30 +5,26 @@
     Credits: Nicolás Cuadrado, MBZUAI, OptMLLab
 
 """
-import os
+
 import traceback
 import numpy as np
 import torch
-import wandb
+import argparse
 
 from gym import Env
 from torch import Tensor
 from torch.nn import Module, Sequential, Linear, LeakyReLU
 from torch.optim import Adam
 from torch.distributions import Normal
-from dotenv import load_dotenv
 
 from src.environments.simple import SimpleEnv
+from src.utils.wandb_logger import WandbLogger
 
 torch.set_default_dtype(torch.float64)
 torch.autograd.set_detect_anomaly(True)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-# Initialize Wandb for logging purposes
-
-load_dotenv()
-wandb.login(key=str(os.environ.get("WANDB_KEY")))
+wdb_logger = WandbLogger(project_name="cont-a2c-simple", entity_name="madog")
 
 # Define global variables
 
@@ -113,7 +109,7 @@ class Agent:
 
         # Hooks into the models to collect gradients and topology
 
-        wandb.watch(models=(self.actor, self.critic))
+        wdb_logger.watch_model(models=(self.actor, self.critic))
 
     def select_action(self, state: Tensor):
 
@@ -158,7 +154,7 @@ class Agent:
 
             states, rewards, log_probs = self.rollout()
 
-            sum_rewards = torch.sum(torch.stack(rewards, dim=0), dim=0)
+            sum_rewards = torch.sum(torch.stack(rewards, dim=0), dim=0).to(device)
             sum_log_probs = torch.sum(torch.stack(log_probs, dim=0), dim=0)
 
             # Just considering the estimated Q value according to the initial state on each trajectory
@@ -179,14 +175,41 @@ class Agent:
             critic_loss.backward()
             self.critic.optimizer.step()
 
-            wandb.log({
+            wdb_logger.log_dict({
                 "rollout_avg_reward": torch.mean(sum_rewards),
                 "actor_loss": actor_loss,
                 "critic_loss": critic_loss
             })
 
+"""
+    Main method definition
+"""
+
+# Read arguments from command line
+
+parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
+
+args = parser.parse_args([])
+
+parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
+parser.add_argument("-b", "--batch_size", default=64, type=int, help="Batch size (ideally a multiple of 2)")
+parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
+parser.add_argument("-g", "--gamma", default=0.99, type=float, help="Reward discount factor")
+parser.add_argument("-alr", "--actor_lr", default=1e-3, type=float, help="Actor learning rate")
+parser.add_argument("-clr", "--critic_lr", default=1e-3, type=float, help="Critic learning rate")
+
+args = parser.parse_args()
 
 if __name__ == '__main__':
+
+    # Get arguments from command line
+
+    disable_logging = args.disable_logging
+    training_steps = args.training_steps
+    batch_size = args.batch_size
+    gamma = args.gamma
+    actor_lr = args.actor_lr
+    critic_lr = args.critic_lr
 
     try:
         
@@ -194,28 +217,26 @@ if __name__ == '__main__':
             Define the simulation parameters
         '''
 
-        batch_size = 64
-        agent_training_steps = 500
-        agent_gamma = 0.99
-        agent_actor_lr = 1e-3
-        agent_critic_lr = 3e-3
+        agent_batch_size = batch_size
+        agent_training_steps = training_steps
+        agent_gamma = gamma
+        agent_actor_lr = actor_lr
+        agent_critic_lr = critic_lr
 
         '''
             Setup all the configurations for Wandb
         '''
 
-        wandb.init(
-            project="cont-a2c-simple",
-            entity="madog",
-            config={
-                "batch_size": batch_size,
-                "training_steps": agent_training_steps,
-                "gamma": agent_gamma,
-                "agent_actor_lr": agent_actor_lr,
-                "agent_critic_lr": agent_critic_lr,
-            }
-        )
-        
+        wdb_logger.disable_logging(disable=disable_logging)
+
+        wdb_logger.init(config={
+            "batch_size": agent_batch_size,
+            "training_steps": agent_training_steps,
+            "gamma": agent_gamma,
+            "agent_actor_lr": agent_actor_lr,
+            "agent_critic_lr": agent_critic_lr,
+        })
+
         '''
             Run the simulator
         '''
@@ -224,7 +245,7 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = SimpleEnv(batch_size=batch_size)
+        my_env = SimpleEnv(batch_size=agent_batch_size)
         
         # Instantiate the agent
         agent = Agent(
@@ -235,11 +256,12 @@ if __name__ == '__main__':
 
         agent.train(training_steps=agent_training_steps)
 
-        # Finish wandb process
-
-        wandb.finish()
-
     except (RuntimeError, KeyboardInterrupt):
 
         traceback.print_exc()
-        wandb.finish()
+
+    finally:
+
+        # Finish wandb process
+
+        wdb_logger.finish()

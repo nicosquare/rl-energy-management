@@ -24,7 +24,6 @@ torch.set_default_dtype(torch.float64)
 torch.autograd.set_detect_anomaly(True)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
 wdb_logger = WandbLogger(project_name="cont-pg-simple", entity_name="madog")
 
 # Define global variables
@@ -161,7 +160,7 @@ parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
 
 args = parser.parse_args([])
 
-parser.add_argument("-dl", "--disable_logging", default=False, action="store_false", help="Disable logging")
+parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
 parser.add_argument("-b", "--batch_size", default=64, type=int, help="Batch size (ideally a multiple of 2)")
 parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
 parser.add_argument("-g", "--gamma", default=0.99, type=float, help="Reward discount factor")
