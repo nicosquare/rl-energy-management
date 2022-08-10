@@ -24,7 +24,7 @@ torch.set_default_dtype(torch.float64)
 torch.autograd.set_detect_anomaly(True)
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-wdb_logger = WandbLogger(project_name="cont-pg-simple", entity_name="madog")
+wdb_logger = WandbLogger(project_name="cont-pg-simple")
 
 # Define global variables
 

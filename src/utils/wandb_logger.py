@@ -5,10 +5,15 @@ from dotenv import load_dotenv
 
 class WandbLogger:
 
-    def __init__(self, project_name, entity_name):
+    def __init__(self, project_name):
     
+        # Load dotenv file
+
+        current_path = os.path.abspath(os.path.dirname(__file__))
+        load_dotenv(dotenv_path=os.path.join(current_path, "../../.env"))
+
         self.project_name = project_name
-        self.entity_name = entity_name
+        self.entity_name = str(os.environ.get("WANDB_ENTITY"))
         self.enabled = True
         
     def init(self, config):
@@ -16,10 +21,7 @@ class WandbLogger:
 
             # Initialize Wandb for logging purposes
 
-            current_path = os.path.abspath(os.path.dirname(__file__))
-            load_dotenv(dotenv_path=os.path.join(current_path, "../../.env"))
             wandb.login(key=str(os.environ.get("WANDB_KEY")))
-
             wandb.init(project=self.project_name, entity=self.entity_name, config=config)
 
     def disable_logging(self, disable):
