@@ -1,14 +1,6 @@
-import torch
 import numpy as np
 
-from torch import Tensor
-from typing import TypedDict
-
-from src.utils.tensors import create_zeros_tensor, create_ones_tensor
-
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-torch.set_default_dtype(torch.float64)
-
+from typing import Tuple, TypedDict
 
 class BatteryParameters(TypedDict):
     """
@@ -44,7 +36,7 @@ class BatteryParameters(TypedDict):
 
 
 class Battery:
-    def __init__(self, params=None, batch_size: int = 1):
+    def __init__(self, params=None, batch_size: int = 1, random_soc_0: bool = False):
         """
 
         Representation of a Battery and the basic parameters that define its operation.
@@ -100,13 +92,19 @@ class Battery:
         self.sell_price = params['sell_price']
         self.capacity_to_charge = None
         self.capacity_to_discharge = None
-        self.soc = self.initialize_soc()
+        self.soc = self.initialize_soc(is_random=random_soc_0)
+
+        # History of the SoC, Power of charge and Power of discharge
+
+        self.hist_soc = np.zeros((batch_size, 1))
+        self.hist_p_charge = np.zeros((batch_size, 1))
+        self.hist_p_discharge = np.zeros((batch_size, 1))
 
         # Initialize the capacity status
 
         self.compute_capacity_status()
 
-    def initialize_soc(self):
+    def initialize_soc(self, is_random: bool = False):
         """
             Initialize the SoC according to the batch size
         :return:
@@ -114,17 +112,18 @@ class Battery:
             init_values: Tensor:
                 Tensor with the initialization values.
         """
-        return (Tensor([self.soc_0]) if self.batch_size == 1 else Tensor(
-            [np.random.uniform(low=self.soc_min, high=self.soc_max) for _ in range(self.batch_size)]
-        )).to(device)
+        return np.zeros((self.batch_size, 1)) if not is_random else np.random.uniform(low=self.soc_min, high=self.soc_max, size=(self.batch_size, 1))
 
-    def reset_battery(self):
+    def reset(self):
         """
             Reset the battery to the initialization state.
         :return:
             None
         """
         self.soc = self.initialize_soc()
+        self.hist_soc = np.zeros((self.batch_size, 1))
+        self.hist_p_charge = np.zeros((self.batch_size, 1))
+        self.hist_p_discharge = np.zeros((self.batch_size, 1))
         self.capacity_to_charge = None
         self.capacity_to_discharge = None
 
@@ -135,17 +134,17 @@ class Battery:
         -------
             None
         """
-        self.capacity_to_charge = torch.maximum(
+        self.capacity_to_charge = np.maximum(
             (self.soc_max * self.capacity - self.soc * self.capacity) / self.efficiency,
-            create_zeros_tensor(size=self.batch_size)
+            np.zeros((self.batch_size, 1))
         )
 
-        self.capacity_to_discharge = torch.maximum(
+        self.capacity_to_discharge = np.maximum(
             (self.soc * self.capacity - self.soc_min * self.capacity) / self.efficiency,
-            create_zeros_tensor(size=self.batch_size)
+            np.zeros((self.batch_size, 1))
         )
 
-    def check_battery_constraints(self, input_power: Tensor) -> (Tensor, Tensor):
+    def check_battery_constraints(self, input_power: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
             Check the physical constrains of the battery to define the maximum power it can charge or discharge.
         Parameters
@@ -166,8 +165,8 @@ class Battery:
 
         # Initialize the charge and discharge power
 
-        p_charge = torch.maximum(input_power, create_zeros_tensor(size=self.batch_size)).to(device)
-        p_discharge = torch.maximum(-input_power, create_zeros_tensor(size=self.batch_size)).to(device)
+        p_charge = np.maximum(input_power, np.zeros((self.batch_size, 1)))
+        p_discharge = np.maximum(-input_power, np.zeros((self.batch_size, 1)))
 
         # Compute the capacities to charge or discharge
 
@@ -175,23 +174,23 @@ class Battery:
 
         # Check battery constraints
 
-        min_charge = torch.minimum(
+        min_charge = np.minimum(
             self.capacity_to_charge,
-            create_ones_tensor(size=self.batch_size) * self.p_charge_max
+            np.ones((self.batch_size, 1)) * self.p_charge_max
         )
 
-        p_charge = torch.where(
+        p_charge = np.where(
             p_charge > min_charge,
             min_charge,
             p_charge
         )
 
-        max_discharge = torch.minimum(
+        max_discharge = np.minimum(
             self.capacity_to_discharge,
-            create_ones_tensor(size=self.batch_size) * self.p_discharge_max
+            np.ones((self.batch_size, 1)) * self.p_discharge_max
         )
 
-        p_discharge = torch.where(
+        p_discharge = np.where(
             p_discharge > max_discharge,
             max_discharge,
             p_discharge
@@ -199,7 +198,7 @@ class Battery:
 
         return p_charge, p_discharge
 
-    def compute_new_soc(self, p_charge: Tensor, p_discharge: Tensor):
+    def apply_action(self, p_charge: np.ndarray, p_discharge: np.ndarray):
         """
             Compute the new SoC according to an instruction for charging/discharging.
         :param p_charge: Tensor indicating the power of charge for the batch battery.
@@ -208,3 +207,9 @@ class Battery:
             None
         """
         self.soc = self.soc + (p_charge * self.efficiency - p_discharge / self.efficiency) / self.capacity
+
+        # Update the history of the SoC, Power of charge and Power of discharge
+        
+        self.hist_soc = np.append(self.hist_soc, self.soc, axis=1)
+        self.hist_p_charge = np.append(self.hist_p_charge, p_charge, axis=1)
+        self.hist_p_discharge = np.append(self.hist_p_discharge, p_discharge, axis=1)

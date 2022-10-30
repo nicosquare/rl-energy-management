@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from typing import TypedDict
+from typing import Tuple, TypedDict
 from torch import Tensor
 
 from .pv import PVGeneration, PVParameters
@@ -90,7 +90,7 @@ class Microgrid:
 
         return np.array([load_t, pv_t])
 
-    def operation_by_source_selection(self, action: int) -> (float, float, float):
+    def operation_by_source_selection(self, action: int) -> Tuple[float, float, float]:
 
         # Process the action as MicrogridAction
 
@@ -192,7 +192,7 @@ class Microgrid:
             create_ones_tensor(len(soc)) * relative_humidity,
         ), dim=1)
 
-    def operation_by_setting_generator(self, power_rate: Tensor) -> (np.ndarray, float):
+    def operation_by_setting_generator(self, power_rate: Tensor) -> Tuple[np.ndarray, float]:
 
         load = self._load.get_step_load(self.get_current_step())
         pv = self._pv.get_step_generation(self.get_current_step())
@@ -203,7 +203,7 @@ class Microgrid:
         remaining_power = generator + pv - load
 
         p_charge, p_discharge = self._battery.check_battery_constraints(input_power=remaining_power)
-        self._battery.compute_new_soc(p_charge=p_charge, p_discharge=p_discharge)
+        self._battery.apply_action(p_charge=p_charge, p_discharge=p_discharge)
 
         # Check if all the energy is attended
 

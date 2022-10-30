@@ -10,7 +10,40 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "env": {
+                "PYTHONPATH": "${workspaceRoot}"
+            },
+            "args": [
+                // "--disable_logging"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Debug 3rd party code",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                // "--disable_logging",
+                "-gpu",
+                // "--random_starting_step",
+                // "--central_agent",
+                // "--encoding",
+                "--extended_observation", 
+                "--epsilon=0.001",
+                "-bs=32",
+                "-g=0.95",
+                "-alr=0.0008",
+                "-clr=0.0008",
+                "-ann=64",
+                "-cnn=64",
+                // "-rs=24",
+                "-ts=3000",
+            ],
+            "justMyCode": false,
         }
     ]
 }

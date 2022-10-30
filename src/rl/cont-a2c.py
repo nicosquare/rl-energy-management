@@ -7,6 +7,7 @@
 """
 import os
 import traceback
+from typing import Union
 import numpy as np
 import torch
 import wandb
@@ -39,7 +40,6 @@ wandb.login(key=str(os.environ.get("WANDB_KEY")))
 
 zero = 1e-5
 
-
 # Misc. methods
 
 def set_all_seeds(seed):
@@ -62,7 +62,7 @@ class Actor(Module):
             Linear(hidden_size, num_actions * 2)  # For each continuous action, a mu and a sigma
         )
 
-    def forward(self, state: Tensor) -> (Tensor, Tensor):
+    def forward(self, state: Tensor) -> Union[Tensor, Tensor]:
         normal_params = self.model(state)
 
         mu = normal_params[:, 0]
