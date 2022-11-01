@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 class WandbLogger:
 
-    def __init__(self,tags):
+    def __init__(self, tags):
     
         # Load dotenv file
 

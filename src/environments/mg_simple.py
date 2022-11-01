@@ -30,10 +30,13 @@ class MGSimple(Env):
 
         self.batch_size = batch_size
 
+        low_limit_obs = np.float32(np.array([0.0, 29.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0]))
+        high_limit_obs = np.float32(np.array([23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]))
+
         self.observation_space = Box(
-            low=np.float32(np.array([0.0, 29.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0])),
-            high=np.float32(np.array([23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])),
-            shape=(8,),
+            low=low_limit_obs,
+            high=high_limit_obs,
+            shape=low_limit_obs.shape,
             dtype=np.float32
         )
 
@@ -42,10 +45,13 @@ class MGSimple(Env):
             batt_action: [-1, 1]
         """
 
+        low_limit_action = np.float32(np.array([-1.0]))
+        high_limit_action = np.float32(np.array([1.0]))
+
         self.action_space = Box(
-            low=-1,
-            high=1,
-            shape=(1,),
+            low=low_limit_action,
+            high=high_limit_action,
+            shape=low_limit_action.shape,
             dtype=np.float32
         )
 

@@ -92,11 +92,12 @@ class Battery:
         self.sell_price = params['sell_price']
         self.capacity_to_charge = None
         self.capacity_to_discharge = None
+        self.random_soc_0 = random_soc_0
         self.soc = self.initialize_soc(is_random=random_soc_0)
 
         # History of the SoC, Power of charge and Power of discharge
 
-        self.hist_soc = np.zeros((batch_size, 1))
+        self.hist_soc = np.copy(self.soc)
         self.hist_p_charge = np.zeros((batch_size, 1))
         self.hist_p_discharge = np.zeros((batch_size, 1))
 
@@ -120,8 +121,8 @@ class Battery:
         :return:
             None
         """
-        self.soc = self.initialize_soc()
-        self.hist_soc = np.zeros((self.batch_size, 1))
+        self.soc = self.initialize_soc(is_random=self.random_soc_0)
+        self.hist_soc = np.copy(self.soc)
         self.hist_p_charge = np.zeros((self.batch_size, 1))
         self.hist_p_discharge = np.zeros((self.batch_size, 1))
         self.capacity_to_charge = None
@@ -144,7 +145,7 @@ class Battery:
             np.zeros((self.batch_size, 1))
         )
 
-    def check_battery_constraints(self, input_power: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def check_battery_constraints(self, power_rate: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
             Check the physical constrains of the battery to define the maximum power it can charge or discharge.
         Parameters
@@ -165,6 +166,7 @@ class Battery:
 
         # Initialize the charge and discharge power
 
+        input_power = power_rate * self.capacity
         p_charge = np.maximum(input_power, np.zeros((self.batch_size, 1)))
         p_discharge = np.maximum(-input_power, np.zeros((self.batch_size, 1)))
 
@@ -176,7 +178,7 @@ class Battery:
 
         min_charge = np.minimum(
             self.capacity_to_charge,
-            np.ones((self.batch_size, 1)) * self.p_charge_max
+            np.ones((self.batch_size, 1)) * self.p_charge_max * self.capacity
         )
 
         p_charge = np.where(
@@ -187,7 +189,7 @@ class Battery:
 
         max_discharge = np.minimum(
             self.capacity_to_discharge,
-            np.ones((self.batch_size, 1)) * self.p_discharge_max
+            np.ones((self.batch_size, 1)) * self.p_discharge_max * self.capacity
         )
 
         p_discharge = np.where(
@@ -196,7 +198,15 @@ class Battery:
             p_discharge
         )
 
-        return p_charge, p_discharge
+        # Compute the ineffective action power (tried to charge or discharge more than the battery can)
+
+        i_action = np.where(
+            power_rate > 0,
+            np.abs(p_charge - power_rate * self.capacity),
+            np.abs(p_discharge + power_rate * self.capacity)
+        ).squeeze()
+
+        return p_charge, p_discharge, i_action
 
     def apply_action(self, p_charge: np.ndarray, p_discharge: np.ndarray):
         """

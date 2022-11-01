@@ -40,7 +40,7 @@ class SimpleMicrogrid():
 
         # Components
 
-        self.battery = Battery(batch_size = batch_size, params = BatteryParameters(
+        self.battery = Battery(batch_size = batch_size, random_soc_0=True, params = BatteryParameters(
             soc_0=0.1,
             soc_max=0.9,
             soc_min=0.1,
@@ -63,7 +63,9 @@ class SimpleMicrogrid():
 
         pv_base, self.pv_gen = self.pv_generation()
         base, self.demand = self.demand_family()
-        nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission()
+        nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
+            gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
+        )
 
         self.remaining_energy = self.total_gen + self.pv_gen - self.demand
 
@@ -123,7 +125,7 @@ class SimpleMicrogrid():
         return base.clip(min=0), gen
 
     def demand_from_day_profile(
-        self, day_profile: np.array, base_power_rate: float = 0.2, min_noise: float = 0, max_noise: float = 0.01,
+        self, day_profile: np.ndarray, base_power_rate: float = 0.2, min_noise: float = 0, max_noise: float = 0.01,
     ):
             
         base = np.ones(self.steps) * self.peak_load * base_power_rate
@@ -204,7 +206,7 @@ class SimpleMicrogrid():
 
         return nuclear_gen, gas_gen, total_gen, price, emission
 
-    def observe(self) -> np.array:
+    def observe(self) -> np.ndarray:
 
         return np.stack([
             np.ones(self.batch_size) * self.current_step % 23,
@@ -222,7 +224,7 @@ class SimpleMicrogrid():
 
         # Apply action to battery and reach the new state
 
-        p_charge, p_discharge = self.battery.check_battery_constraints(input_power = batt_action)
+        p_charge, p_discharge, i_action = self.battery.check_battery_constraints(power_rate=batt_action)
         self.battery.apply_action(p_charge = p_charge, p_discharge = p_discharge)
 
         self.current_step += 1
@@ -238,9 +240,9 @@ class SimpleMicrogrid():
 
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            self.net_energy[:,self.current_step] * (self.price[self.current_step] + self.emission[self.current_step]),
-            self.net_energy[:,self.current_step] * (self.price[self.current_step])
-        ).reshape(-1,1)
+            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step])
+        ).reshape(self.batch_size,1)
 
         return self.observe(), -cost
 
@@ -251,7 +253,7 @@ class SimpleMicrogrid():
         -------
             None
         """
-        self.current_t = 0
+        self.current_step = 0
         self.battery.reset()
         
 
