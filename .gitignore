@@ -136,3 +136,4 @@ output.*
 
 models/*
 
+src/.DS_Store
