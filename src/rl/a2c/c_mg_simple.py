@@ -14,7 +14,7 @@ import argparse
 from tqdm import tqdm
 
 from gym import Env
-from torch import Tensor, tensor
+from torch import Tensor, tensor, tanh
 from torch.nn import Module, Linear, MSELoss
 from torch.functional import F
 from torch.optim import Adam
@@ -166,7 +166,7 @@ class Agent:
     def select_action(self, state: Tensor):
 
         mu, sigma = self.actor(state)
-        mu = F.tanh(mu)
+        mu = tanh(mu)
 
         # Define the distribution
 

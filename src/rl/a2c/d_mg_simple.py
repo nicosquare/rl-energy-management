@@ -86,7 +86,7 @@ class Agent:
         enable_gpu: bool = False
     ):
 
-        self.discrete_actions = np.linspace(-0.8, 0.8, 40)
+        self.discrete_actions = np.linspace(-0.99, 0.99, 40)
         # self.discrete_actions = np.logspace(-0.8, 0.8, 40)
         
         # Parameter initialization
@@ -419,6 +419,10 @@ if __name__ == '__main__':
         # Launch the training
 
         agent.train(training_steps=training_steps, epsilon=epsilon)
+
+        # Finish wandb process
+
+        agent.wdb_logger.finish()
 
     except (RuntimeError, KeyboardInterrupt):
 

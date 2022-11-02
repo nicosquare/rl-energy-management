@@ -202,8 +202,8 @@ class Battery:
 
         i_action = np.where(
             power_rate > 0,
-            np.abs(p_charge - power_rate * self.capacity),
-            np.abs(p_discharge + power_rate * self.capacity)
+            np.abs(p_charge - input_power),
+            np.abs(p_discharge + input_power)
         ).squeeze()
 
         return p_charge, p_discharge, i_action

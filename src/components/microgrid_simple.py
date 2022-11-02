@@ -8,7 +8,8 @@ from src.components.battery import Battery, BatteryParameters
 class SimpleMicrogrid():
     
     def __init__(
-        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_conv_gen: float = 1, peak_load: float = 1
+        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_conv_gen: float = 1, peak_load: float = 1,
+        grid_sell_rate: float = 0.25
     ):
         
         self.steps = steps
@@ -16,6 +17,7 @@ class SimpleMicrogrid():
         self.peak_conv_gen = peak_conv_gen
         self.peak_load = peak_load
         self.batch_size = batch_size
+        self.grid_sell_rate = grid_sell_rate
 
         # Microgrid data
 
@@ -62,7 +64,9 @@ class SimpleMicrogrid():
         # Generate data
 
         pv_base, self.pv_gen = self.pv_generation()
-        base, self.demand = self.demand_family()
+        # base, self.demand = self.demand_family()
+        # base, self.demand = self.demand_teenagers()
+        base, self.demand = self.demand_home_business()
         nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
         )
@@ -113,10 +117,10 @@ class SimpleMicrogrid():
 
             plt.show()
 
-    def pv_generation(self):
+    def pv_generation(self, min_noise: float = 0, max_noise: float = 0.1):
 
         base = np.sin((self.time/4) + 5)
-        noise = np.random.normal(0, 0.1, self.steps)
+        noise = np.random.normal(min_noise, max_noise, self.steps)
 
         # Generation is clipped because it can't be negative
 
@@ -215,7 +219,7 @@ class SimpleMicrogrid():
             np.ones(self.batch_size) * self.demand[self.current_step],
             self.net_energy[:,self.current_step],
             np.ones(self.batch_size) * self.price[self.current_step],
-            np.ones(self.batch_size) * self.price[self.current_step] * 0.9,
+            np.ones(self.batch_size) * self.price[self.current_step] * self.grid_sell_rate,
             np.ones(self.batch_size) * self.emission[self.current_step],
             self.battery.soc.squeeze(axis=-1)
         ], axis=1)
@@ -229,7 +233,7 @@ class SimpleMicrogrid():
 
         self.current_step += 1
 
-        # Compute the next step net energy
+        # Compute the next step net energy #TODO: check if this is correct (p_charge, p_discharge)
 
         self.net_energy = np.append(
             self.net_energy,
