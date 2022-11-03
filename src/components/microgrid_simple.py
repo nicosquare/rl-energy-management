@@ -9,7 +9,7 @@ class SimpleMicrogrid():
     
     def __init__(
         self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_conv_gen: float = 1, peak_load: float = 1,
-        grid_sell_rate: float = 0.25
+        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
     ):
         
         self.steps = steps
@@ -42,7 +42,7 @@ class SimpleMicrogrid():
 
         # Components
 
-        self.battery = Battery(batch_size = batch_size, random_soc_0=True, params = BatteryParameters(
+        self.battery = Battery(batch_size = batch_size, random_soc_0=random_soc_0, params = BatteryParameters(
             soc_0=0.1,
             soc_max=0.9,
             soc_min=0.1,
@@ -56,17 +56,27 @@ class SimpleMicrogrid():
 
         # Generate data
 
-        self.generate_data()
+        self.generate_data(disable_noise=disable_noise)
         
 
-    def generate_data(self, plot: bool = False):
+    def generate_data(self, plot: bool = False, disable_noise: bool = False):
+
+        min_noise_pv = 0
+        max_noise_pv = 0.1
+        min_noise_demand = 0
+        max_noise_demand = 0.01
+
+        if disable_noise:
+    
+            max_noise_pv = 0
+            max_noise_demand = 0
 
         # Generate data
 
-        pv_base, self.pv_gen = self.pv_generation()
-        # base, self.demand = self.demand_family()
-        # base, self.demand = self.demand_teenagers()
-        base, self.demand = self.demand_home_business()
+        pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
+        base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        # base, self.demand = self.demand_teenagers(min_noise=min_noise, max_noise=max_noise)
+        # base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
         nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
         )
@@ -152,7 +162,7 @@ class SimpleMicrogrid():
 
         return full_base, demand
 
-    def demand_family(self):
+    def demand_family(self, min_noise: float = 0, max_noise: float = 0.06):
 
         # Day profile defined arbitrarily according to the assumed behaviour of a family
 
@@ -160,9 +170,9 @@ class SimpleMicrogrid():
             0, 0, 0, 0, 0, 0.25, 0.83, 1, 0.25, 0, 0, 0, 0, 0, 0, 0.33, 0.41, 0.41, 0.66, 0.83, 0.66, 0.25, 0.08, 0
         ])
 
-        return self.demand_from_day_profile(day_profile, base_power_rate=0.2, min_noise=0, max_noise=0.06)
+        return self.demand_from_day_profile(day_profile, base_power_rate=0.2, min_noise=min_noise, max_noise=max_noise)
 
-    def demand_teenagers(self):
+    def demand_teenagers(self, min_noise: float = 0, max_noise: float = 0.06):
 
         # Day profile defined arbitrarily according to the assumed behaviour of teenagers
 
@@ -170,9 +180,9 @@ class SimpleMicrogrid():
             1, 1, 1, 0.83, 0.41, 0, 0, 0, 0, 0, 0, 0, 0, 0.25, 0.41, 0.41, 0.41, 0.41, 0.41, 0.83, 1, 1, 1, 1
         ])
 
-        return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=0, max_noise=0.06)
+        return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
 
-    def demand_home_business(self):
+    def demand_home_business(self, min_noise: float = 0, max_noise: float = 0.06):
             
         # Day profile defined arbitrarily according to the assumed behaviour of a home business
 
@@ -180,7 +190,7 @@ class SimpleMicrogrid():
             0, 0, 0, 0, 0, 0.25, 0.83, 1, 0.25, 0, 0, 0, 0, 0, 0, 0.33, 0.41, 0.41, 0.66, 0.83, 0.66, 0.25, 0.83, 0
         ])
 
-        return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=0, max_noise=0.06)
+        return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
 
     def grid_price_and_emission(
         self, nuclear_energy_rate: float = 0.6, nuclear_price: float = 0.1, nuclear_emission_factor: float = 0.01,
@@ -242,10 +252,16 @@ class SimpleMicrogrid():
 
         # Compute cost
 
+        # cost = np.where(
+        #     self.net_energy[:,self.current_step] > 0,
+        #     (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
+        #     (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step])
+        # ).reshape(self.batch_size,1)
+
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step])
+            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step]) * (self.price[self.current_step])
         ).reshape(self.batch_size,1)
 
         return self.observe(), -cost
