@@ -258,6 +258,7 @@ class SimpleMicrogrid():
             None
         """
         self.current_step = 0
+        self.generate_data()
         self.battery.reset()
         
 
