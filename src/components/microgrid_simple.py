@@ -223,7 +223,7 @@ class SimpleMicrogrid():
     def observe(self) -> np.ndarray:
 
         return np.stack([
-            np.ones(self.batch_size) * self.current_step % 23,
+            np.ones(self.batch_size) * self.current_step % 24,
             np.ones(self.batch_size) * self.temp[self.current_step],
             np.ones(self.batch_size) * self.pv_gen[self.current_step],
             np.ones(self.batch_size) * self.demand[self.current_step],
@@ -240,8 +240,6 @@ class SimpleMicrogrid():
 
         p_charge, p_discharge, i_action = self.battery.check_battery_constraints(power_rate=batt_action)
         self.battery.apply_action(p_charge = p_charge, p_discharge = p_discharge)
-
-        self.current_step += 1
 
         # Compute the next step net energy #TODO: check if this is correct (p_charge, p_discharge)
 
@@ -264,6 +262,8 @@ class SimpleMicrogrid():
             (self.net_energy[:,self.current_step]) * (self.price[self.current_step])
         ).reshape(self.batch_size,1)
 
+        self.current_step += 1
+        
         return self.observe(), -cost
 
     def reset(self):
