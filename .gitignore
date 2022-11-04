@@ -138,4 +138,8 @@ output.*
 
 models/*
 
+logs/*
+
 src/.DS_Store
+
+cscc*.sh
