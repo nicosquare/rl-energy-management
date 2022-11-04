@@ -350,7 +350,8 @@ if __name__ == '__main__':
     parser.add_argument("-g", "--gamma", default=0.95, type=float, help="Critic hidden layer number of neurons")
     parser.add_argument("-gpu", "--enable_gpu", default=False, action="store_true", help="Device to use for training")
     parser.add_argument("-ca", "--central_agent", default=False, action="store_true", help="Central agent")
-    parser.add_argument("-rss", "--random_starting_step", default=False, action="store_true", help="Random starting step")
+    parser.add_argument("-rss", "--random_soc_0", default=False, action="store_true", help="Random starting soc")
+    parser.add_argument("-dn", "--disable_noise", default=False, action="store_true", help="Disable noise from data generation")
     parser.add_argument("-e", "--encoding", default=False, action="store_true", help="Enable encoding")
     parser.add_argument("-xobs", "--extended_observation", default=False, action="store_true", help="Extended observation")
     parser.add_argument("-eps", "--epsilon", default=0.5, type=float, help="Epsilon for stop condition")
@@ -370,10 +371,11 @@ if __name__ == '__main__':
     gamma = args.gamma
     enable_gpu = args.enable_gpu
     central_agent = args.central_agent
-    random_starting_step = args.random_starting_step
+    random_soc_0 = args.random_soc_0
     encoding = args.encoding
     extended_observation = args.extended_observation
     epsilon = args.epsilon
+    disable_noise = args.disable_noise
 
     # Start wandb logger
 
@@ -393,7 +395,7 @@ if __name__ == '__main__':
             "agent_critic_nn": critic_nn,
             "gamma": gamma,
             "central_agent": central_agent,
-            "random_starting_step": random_starting_step,
+            "random_soc_0": random_soc_0,
             "encoding": encoding,
             "extended_observation": extended_observation,
             "epsilon": epsilon,
@@ -407,7 +409,10 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = MGSimple(batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_conv_gen = 1, peak_load = 1)
+        my_env = MGSimple(
+            batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_conv_gen = 1, peak_load = 1,
+            random_soc_0=random_soc_0, disable_noise=disable_noise
+        )
 
         # Instantiate the agent
 

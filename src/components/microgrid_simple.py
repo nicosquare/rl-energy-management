@@ -28,6 +28,7 @@ class SimpleMicrogrid():
         self.net_energy = None
         self.price = None
         self.emission = None
+        self.disable_noise = disable_noise
 
         # Time variables
 
@@ -81,7 +82,7 @@ class SimpleMicrogrid():
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
         )
 
-        self.remaining_energy = self.total_gen + self.pv_gen - self.demand
+        self.remaining_energy = self.demand - self.pv_gen
 
         # Net energy starts with remaining energy value as not action has been taken yet
 
@@ -241,26 +242,42 @@ class SimpleMicrogrid():
         p_charge, p_discharge, i_action = self.battery.check_battery_constraints(power_rate=batt_action)
         self.battery.apply_action(p_charge = p_charge, p_discharge = p_discharge)
 
-        # Compute the next step net energy #TODO: check if this is correct (p_charge, p_discharge)
+        # Compute the next step net energy
 
         self.net_energy = np.append(
             self.net_energy,
-            (self.remaining_energy[self.current_step] + self.battery.hist_p_charge[:,self.current_step] - self.battery.hist_p_discharge[:,self.current_step]).reshape(-1,1)
+            (self.remaining_energy[self.current_step] + p_charge - p_discharge)
         , axis=1)
+
+        # Compute penalization for not using energy from the battery
+
+        unused_battery = np.where(
+            self.net_energy[:,self.current_step] > 0,
+            np.minimum(self.net_energy[:,self.current_step], self.battery.capacity_to_discharge.squeeze()),
+            0
+        )
+
+        # Compute penalization for not using energy from the PV
+
+        unused_pv = np.where(
+            self.net_energy[:,self.current_step] < 0,
+            np.minimum(-self.net_energy[:,self.current_step], self.battery.capacity_to_charge.squeeze()),
+            0
+        )
 
         # Compute cost
 
-        # cost = np.where(
-        #     self.net_energy[:,self.current_step] > 0,
-        #     (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
-        #     (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step])
-        # ).reshape(self.batch_size,1)
-
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step]) * (self.price[self.current_step])
+            (self.net_energy[:,self.current_step] + i_action + unused_battery) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step]) * self.grid_sell_rate
         ).reshape(self.batch_size,1)
+
+        # cost = np.where(
+        #     self.net_energy[:,self.current_step] > 0,
+        #     (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
+        #     (self.net_energy[:,self.current_step]) * (self.price[self.current_step]) * self.grid_sell_rate
+        # ).reshape(self.batch_size,1)
 
         self.current_step += 1
         
@@ -274,12 +291,5 @@ class SimpleMicrogrid():
             None
         """
         self.current_step = 0
-        self.generate_data()
+        self.generate_data(disable_noise=self.disable_noise)
         self.battery.reset()
-        
-
-if __name__ == "__main__":
-
-    microgrid = SimpleMicrogrid(steps=96)
-
-    microgrid.generate_data(plot=True)

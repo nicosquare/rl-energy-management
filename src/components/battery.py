@@ -223,3 +223,7 @@ class Battery:
         self.hist_soc = np.append(self.hist_soc, self.soc, axis=1)
         self.hist_p_charge = np.append(self.hist_p_charge, p_charge, axis=1)
         self.hist_p_discharge = np.append(self.hist_p_discharge, p_discharge, axis=1)
+
+        # Compute the capacities to charge or discharge
+
+        self.compute_capacity_status()
