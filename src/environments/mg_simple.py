@@ -23,7 +23,6 @@ class MGSimple(Env):
             temperature: [29, 31]
             pv_generation: [0, 1]
             demand: [0, 1]
-            net_energy: [-1, 1]
             grid_sell_price: [0, 1]
             grid_buy_price: [0, 1]
             grid_emission_factor: [0, 1]
@@ -33,8 +32,8 @@ class MGSimple(Env):
 
         self.batch_size = batch_size
 
-        low_limit_obs = np.float32(np.array([0.0, 29.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0]))
-        high_limit_obs = np.float32(np.array([23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]))
+        low_limit_obs = np.float32(np.array([0.0, 29.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+        high_limit_obs = np.float32(np.array([23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]))
 
         self.observation_space = Box(
             low=low_limit_obs,

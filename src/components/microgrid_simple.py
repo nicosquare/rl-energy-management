@@ -86,7 +86,7 @@ class SimpleMicrogrid():
 
         # Net energy starts with remaining energy value as not action has been taken yet
 
-        self.net_energy = np.ones((self.batch_size, 1)) * self.remaining_energy[self.current_step]
+        self.net_energy = np.zeros((self.batch_size, self.steps))
 
         # Plot data
 
@@ -228,7 +228,6 @@ class SimpleMicrogrid():
             np.ones(self.batch_size) * self.temp[self.current_step],
             np.ones(self.batch_size) * self.pv_gen[self.current_step],
             np.ones(self.batch_size) * self.demand[self.current_step],
-            self.net_energy[:,self.current_step],
             np.ones(self.batch_size) * self.price[self.current_step],
             np.ones(self.batch_size) * self.price[self.current_step] * self.grid_sell_rate,
             np.ones(self.batch_size) * self.emission[self.current_step],
@@ -244,10 +243,7 @@ class SimpleMicrogrid():
 
         # Compute the next step net energy
 
-        self.net_energy = np.append(
-            self.net_energy,
-            (self.remaining_energy[self.current_step] + p_charge - p_discharge)
-        , axis=1)
+        self.net_energy[:,self.current_step] += (self.remaining_energy[self.current_step] + p_charge - p_discharge).squeeze()
 
         # Compute penalization for not using energy from the battery
 
@@ -267,17 +263,17 @@ class SimpleMicrogrid():
 
         # Compute cost
 
-        cost = np.where(
-            self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step] + i_action + unused_battery) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step]) * self.grid_sell_rate
-        ).reshape(self.batch_size,1)
-
         # cost = np.where(
         #     self.net_energy[:,self.current_step] > 0,
-        #     (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
-        #     (self.net_energy[:,self.current_step]) * (self.price[self.current_step]) * self.grid_sell_rate
+        #     (self.net_energy[:,self.current_step] + i_action + unused_battery) * (self.price[self.current_step] + self.emission[self.current_step]),
+        #     (self.net_energy[:,self.current_step] + i_action + unused_pv) * (self.price[self.current_step]) * self.grid_sell_rate
         # ).reshape(self.batch_size,1)
+
+        cost = np.where(
+            self.net_energy[:,self.current_step] > 0,
+            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step]) * (self.price[self.current_step]) * self.grid_sell_rate
+        ).reshape(self.batch_size,1)
 
         self.current_step += 1
         
