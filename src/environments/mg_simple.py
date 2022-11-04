@@ -8,7 +8,7 @@ from src.components.microgrid_simple import SimpleMicrogrid
 class MGSimple(Env):
 
     def __init__(
-        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_conv_gen: float = 1, peak_load: float = 1,
+        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
         disable_noise: bool = False, random_soc_0: bool = False
     ):
         
@@ -59,7 +59,7 @@ class MGSimple(Env):
         )
 
         self.mg = SimpleMicrogrid(
-            batch_size=batch_size, steps=steps, min_temp=min_temp, max_temp=max_temp, peak_pv_gen=peak_pv_gen, peak_conv_gen=peak_conv_gen, peak_load=peak_load,
+            batch_size=batch_size, steps=steps, min_temp=min_temp, max_temp=max_temp, peak_pv_gen=peak_pv_gen, peak_grid_gen=peak_grid_gen, peak_load=peak_load,
             disable_noise=disable_noise, random_soc_0=random_soc_0
         )
 
