@@ -432,9 +432,3 @@ if __name__ == '__main__':
     except (RuntimeError, KeyboardInterrupt):
 
         traceback.print_exc()
-
-    # finally:
-
-    #     # Finish wandb process
-
-    #     agent.wdb_logger.finish()
