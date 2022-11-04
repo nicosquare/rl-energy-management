@@ -130,7 +130,9 @@ dmypy.json
 
 wandb/*
 
-# Exclude CSCC logs
+# Exclude documents we modify
+
+.vscode
 
 output.*
 
