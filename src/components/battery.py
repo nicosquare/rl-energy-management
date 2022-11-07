@@ -110,10 +110,10 @@ class Battery:
             Initialize the SoC according to the batch size
         :return:
 
-            init_values: Tensor:
-                Tensor with the initialization values.
+            init_values: Array:
+                Array with the initialization values.
         """
-        return np.zeros((self.batch_size, 1)) if not is_random else np.random.uniform(low=self.soc_min, high=self.soc_max, size=(self.batch_size, 1))
+        return np.ones((self.batch_size, 1)) * self.soc_min if not is_random else np.random.uniform(low=self.soc_min, high=self.soc_max, size=(self.batch_size, 1))
 
     def reset(self):
         """
@@ -150,17 +150,17 @@ class Battery:
             Check the physical constrains of the battery to define the maximum power it can charge or discharge.
         Parameters
         ----------
-        input_power: Tensor
+        input_power: Array
             Amount of energy that is required from the battery, could be positive for charging or negative for
             discharging.
 
         Returns
         -------
-            p_charge: Tensor
+            p_charge: Array
                 Power of charge given the input power.
-            p_discharge: Tensor
+            p_discharge: Array
                 Power of discharge given the input power.
-            new_soc: Tensor
+            new_soc: Array
                 Value between 0 and 1 indicating the new SoC after charging or discharging.
         """
 
@@ -211,12 +211,14 @@ class Battery:
     def apply_action(self, p_charge: np.ndarray, p_discharge: np.ndarray):
         """
             Compute the new SoC according to an instruction for charging/discharging.
-        :param p_charge: Tensor indicating the power of charge for the batch battery.
-        :param p_discharge: Tensor indicating the power of discharge for the batch battery.
+        :param p_charge: Array indicating the power of charge for the batch battery.
+        :param p_discharge: Array indicating the power of discharge for the batch battery.
         :return:
             None
         """
+        
         self.soc = self.soc + (p_charge * self.efficiency - p_discharge / self.efficiency) / self.capacity
+        self.soc = self.soc.clip(min=self.soc_min, max=self.soc_max)
 
         # Update the history of the SoC, Power of charge and Power of discharge
         

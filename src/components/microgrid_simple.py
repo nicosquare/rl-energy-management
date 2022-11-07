@@ -76,7 +76,7 @@ class SimpleMicrogrid():
 
         pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
         base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
-        # base, self.demand = self.demand_teenagers(min_noise=min_noise, max_noise=max_noise)
+        # base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
         # base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
         nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
@@ -263,17 +263,15 @@ class SimpleMicrogrid():
 
         # Compute cost
 
-        # cost = np.where(
-        #     self.net_energy[:,self.current_step] > 0,
-        #     (self.net_energy[:,self.current_step] + i_action + unused_battery) * (self.price[self.current_step] + self.emission[self.current_step]),
-        #     (self.net_energy[:,self.current_step] + i_action + unused_pv) * (self.price[self.current_step]) * self.grid_sell_rate
-        # ).reshape(self.batch_size,1)
-
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
             (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
             (self.net_energy[:,self.current_step]) * (self.price[self.current_step]) * self.grid_sell_rate
         ).reshape(self.batch_size,1)
+
+        # self.unused_energy_penalty = 1
+
+        # cost += (unused_battery + unused_pv).reshape(cost.shape) * self.unused_energy_penalty
 
         self.current_step += 1
         

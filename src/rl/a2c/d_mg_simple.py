@@ -40,6 +40,24 @@ def set_all_seeds(seed):
     torch.backends.cudnn.deterministic = True
 
 
+# class Actor(Module):
+
+#     def __init__(self, state_size, num_actions, hidden_size=64):
+#         super(Actor, self).__init__()
+
+#         # Define the independent inputs
+
+#         self.input = Linear(state_size, hidden_size)
+#         self.output = Linear(hidden_size, num_actions)
+
+#     def forward(self, state: Tensor) -> Tensor:
+
+#         state = F.relu(self.input(state))
+
+#         output = F.softmax(self.output(state), dim=1)
+
+#         return output
+
 class Actor(Module):
 
     def __init__(self, state_size, num_actions, hidden_size=64):
@@ -48,11 +66,13 @@ class Actor(Module):
         # Define the independent inputs
 
         self.input = Linear(state_size, hidden_size)
-        self.output = Linear(hidden_size, num_actions)
+        self.fc_1 = Linear(hidden_size, hidden_size * 2)
+        self.output = Linear(hidden_size * 2, num_actions)
 
     def forward(self, state: Tensor) -> Tensor:
 
         state = F.relu(self.input(state))
+        state = F.relu(self.fc_1(state))
 
         output = F.softmax(self.output(state), dim=1)
 
@@ -86,7 +106,7 @@ class Agent:
         enable_gpu: bool = False
     ):
 
-        self.discrete_actions = np.linspace(-0.99, 0.99, 40)
+        self.discrete_actions = np.linspace(-0.9, 0.9, 40)
         # self.discrete_actions = np.logspace(-0.8, 0.8, 40)
         
         # Parameter initialization
@@ -281,7 +301,7 @@ class Agent:
 
             stop_condition = actor_loss.abs().item() <= epsilon and critic_loss.abs().item() <= epsilon
 
-            if step % 5 == 0 or stop_condition:
+            if step % 100 == 0 or stop_condition:
 
                 # Wandb logging
 
