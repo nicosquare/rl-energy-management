@@ -8,13 +8,13 @@ from src.components.battery import Battery, BatteryParameters
 class SimpleMicrogrid():
     
     def __init__(
-        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_conv_gen: float = 1, peak_load: float = 1,
+        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
         grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
     ):
         
         self.steps = steps
         self.peak_pv_gen = peak_pv_gen
-        self.peak_conv_gen = peak_conv_gen
+        self.peak_grid_gen = peak_grid_gen
         self.peak_load = peak_load
         self.batch_size = batch_size
         self.grid_sell_rate = grid_sell_rate
@@ -200,10 +200,10 @@ class SimpleMicrogrid():
         
         # Assume a mix between nuclear and gas power plants
 
-        nuclear_gen = np.ones(self.steps) * nuclear_energy_rate * self.peak_conv_gen
+        nuclear_gen = np.ones(self.steps) * nuclear_energy_rate * self.peak_grid_gen
         daily_gas_gen = np.array([
             0, 0, 0, 0, 0, 0, 0.3, 0.6, 1, 0.6, 0.3, 0.3, 0.3, 0.3, 0.6, 1, 0.6, 0.3, 0, 0, 0, 0, 0, 0
-        ]) * (self.peak_conv_gen - nuclear_gen.max())
+        ]) * (self.peak_grid_gen - nuclear_gen.max())
 
         # Generate a complete profile from a daily
 

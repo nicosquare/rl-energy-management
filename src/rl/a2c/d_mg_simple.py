@@ -430,7 +430,7 @@ if __name__ == '__main__':
         # Instantiate the environment
 
         my_env = MGSimple(
-            batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_conv_gen = 1, peak_load = 1,
+            batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_grid_gen = 1, peak_load = 1,
             random_soc_0=random_soc_0, disable_noise=disable_noise
         )
 
