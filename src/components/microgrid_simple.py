@@ -8,7 +8,7 @@ from src.components.battery import Battery, BatteryParameters
 class SimpleMicrogrid():
     
     def __init__(
-        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
+        self, batch_size: int = 1, steps: int = 24, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
         grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
     ):
         
@@ -266,7 +266,7 @@ class SimpleMicrogrid():
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
             (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step]) * (self.price[self.current_step]) * self.grid_sell_rate
+            self.net_energy[:,self.current_step] * self.price[self.current_step] * self.grid_sell_rate
         ).reshape(self.batch_size,1)
 
         # self.unused_energy_penalty = 1

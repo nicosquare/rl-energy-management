@@ -9,7 +9,7 @@ class MGSimple(Env):
 
     def __init__(
         self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
-        disable_noise: bool = False, random_soc_0: bool = False
+        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
     ):
         
         """
@@ -19,14 +19,14 @@ class MGSimple(Env):
         """
         Observation space is composed by:
         
-            hour_of_day: [0, 23]
-            temperature: [29, 31]
-            pv_generation: [0, 1]
-            demand: [0, 1]
-            grid_sell_price: [0, 1]
-            grid_buy_price: [0, 1]
-            grid_emission_factor: [0, 1]
-            soc: [0,1]
+            0 hour_of_day: [0, 23]
+            1 temperature: [29, 31]
+            2 pv_generation: [0, 1]
+            3 demand: [0, 1]
+            4 grid_sell_price: [0, 1]
+            5 grid_buy_price: [0, 1]
+            6 grid_emission_factor: [0, 1]
+            7 soc: [0,1]
         
         """
 
@@ -59,7 +59,7 @@ class MGSimple(Env):
 
         self.mg = SimpleMicrogrid(
             batch_size=batch_size, steps=steps, min_temp=min_temp, max_temp=max_temp, peak_pv_gen=peak_pv_gen, peak_grid_gen=peak_grid_gen, peak_load=peak_load,
-            disable_noise=disable_noise, random_soc_0=random_soc_0
+            grid_sell_rate= grid_sell_rate, disable_noise=disable_noise, random_soc_0=random_soc_0
         )
 
     def observe(self):
