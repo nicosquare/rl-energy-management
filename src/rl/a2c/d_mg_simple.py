@@ -177,7 +177,7 @@ class Agent:
 
         return wdb_logger
 
-    def select_action(self, state: Tensor):
+    def select_action(self, state: Tensor, epsilon: float):
 
         probs = self.actor(state)
 
@@ -185,10 +185,17 @@ class Agent:
 
         dist = Categorical(probs=probs)
 
-        # Transform the distribution to restrict the range of the output
+        # Sample action from the distribution with a percentage of epsilon-randomness
 
-        action_index = dist.sample()
-        action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
+        if np.random.random() < epsilon:
+
+            action = np.random.choice(self.discrete_actions, self.batch_size).reshape(self.batch_size, 1)
+            action_index = tensor([np.where(self.discrete_actions == a)[0][0] for a in action]).to(self.device)
+
+        else:
+
+            action_index = dist.sample()
+            action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
 
         log_prob = dist.log_prob(action_index)
 
@@ -200,7 +207,7 @@ class Agent:
 
         return state
 
-    def rollout(self):
+    def rollout(self, epsilon: float = 0.0):
 
         states, rewards, log_probs, actions_hist = [], [], [], []
 
@@ -221,7 +228,7 @@ class Agent:
 
             # Perform action and pass to next state
 
-            actions, log_prob = self.select_action(tensor(state).float().to(self.device))
+            actions, log_prob = self.select_action(tensor(state).float().to(self.device), epsilon=epsilon)
 
             state, reward, done, _ = self.env.step(actions)
 
@@ -240,21 +247,25 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
-    def train(self, training_steps: int = 1000, epsilon: float = 0.5):
+    def train(self, training_steps: int = 1000, min_loss: float = 0.01, epsilon: float = 0.0):
 
-        all_states, all_rewards, all_actions = [], [], []
+        all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
+
+        init_epsilon = epsilon
+        final_epsilon = 0.1 * epsilon
 
         for step in tqdm(range(self.current_step, training_steps)):
 
             # Perform rollouts and sample trajectories
 
-            states, rewards, log_probs, actions_hist = self.rollout()
+            states, rewards, log_probs, actions_hist = self.rollout(epsilon=epsilon)
 
             # Append the trajectories to the arrays
 
             all_states.append(states)
             all_rewards.append(rewards)
             all_actions.append(actions_hist)
+            all_net_energy.append(self.env.mg.net_energy)
 
             # Perform the optimization step
 
@@ -299,7 +310,11 @@ class Agent:
 
             # Check stop condition
 
-            stop_condition = actor_loss.abs().item() <= epsilon and critic_loss.abs().item() <= epsilon
+            stop_condition = actor_loss.abs().item() <= min_loss and critic_loss.abs().item() <= min_loss
+
+            # Update alpha
+
+            epsilon -= (init_epsilon - final_epsilon) / int(training_steps / 3)
 
             if step % 100 == 0 or stop_condition:
 
@@ -328,7 +343,7 @@ class Agent:
 
                 self.wdb_logger.save_model()
 
-        return all_states, all_rewards, all_actions
+        return all_states, all_rewards, all_actions, all_net_energy
 
     # Save weights to file
 
@@ -374,7 +389,7 @@ if __name__ == '__main__':
     parser.add_argument("-dn", "--disable_noise", default=False, action="store_true", help="Disable noise from data generation")
     parser.add_argument("-e", "--encoding", default=False, action="store_true", help="Enable encoding")
     parser.add_argument("-xobs", "--extended_observation", default=False, action="store_true", help="Extended observation")
-    parser.add_argument("-eps", "--epsilon", default=0.5, type=float, help="Epsilon for stop condition")
+    parser.add_argument("-eps", "--epsilon", default=0.0, type=float, help="Epsilon for define randomness in actions")
 
     args = parser.parse_args()
 
