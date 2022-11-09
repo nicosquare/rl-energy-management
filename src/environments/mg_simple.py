@@ -83,11 +83,20 @@ class MGSimple(Env):
 
     def step(self, action: np.ndarray):
 
-        state, reward = self.mg.apply_action(batt_action=action)
-
-        state = state
-        done = self.mg.current_step >= (self.mg.steps - 1)
+        done = self.mg.current_step >= self.mg.steps
         info = {}
+        
+        if not done:
+            
+            reward = self.mg.apply_action(batt_action=action)
+            state = self.mg.observe()
+
+            self.mg.increment_step()
+            
+        else:
+                
+            state = np.zeros(self.observation_space.shape)
+            reward = np.zeros((self.batch_size, 1))
 
         return state, reward, done, info
 

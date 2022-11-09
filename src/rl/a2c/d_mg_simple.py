@@ -249,8 +249,6 @@ class Agent:
         rewards = np.stack(rewards)
         actions_hist = np.stack(actions_hist).squeeze(axis=-1)
 
-
-
         return states, rewards, log_probs, actions_hist
 
     def train(self, training_steps: int = 1000, min_loss: float = 0.01, epsilon: float = 0.0):
@@ -326,7 +324,7 @@ class Agent:
                 # Wandb logging
 
                 results = {
-                    "rollout_avg_reward": sum_rewards[0,:].mean(),
+                    "rollout_avg_reward": rewards.mean(axis=1).sum(axis=0)[0],
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),

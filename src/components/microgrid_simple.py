@@ -281,17 +281,18 @@ class SimpleMicrogrid():
 
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step] - i_action) * self.price[self.current_step] * self.grid_sell_rate
+            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step]) * self.price[self.current_step] * self.grid_sell_rate
         ).reshape(self.batch_size,1)
 
         # self.unused_energy_penalty = 0.3
 
         # cost += (unused_battery + unused_pv).reshape(cost.shape) * self.unused_energy_penalty
-
-        self.current_step += 1
         
-        return self.observe(), -cost
+        return -cost
+
+    def increment_step(self) -> None:
+        self.current_step += 1
 
     def reset(self):
         """
