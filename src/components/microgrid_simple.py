@@ -223,11 +223,27 @@ class SimpleMicrogrid():
 
     def observe(self) -> np.ndarray:
 
+        prediction_indexes = (self.current_step + 1 + np.arange(0,6)) % self.steps
+        pv_gen_prediction = self.pv_gen[prediction_indexes]
+        demand_prediction = self.demand[prediction_indexes]
+
         return np.stack([
             np.ones(self.batch_size) * self.current_step % 24,
             np.ones(self.batch_size) * self.temp[self.current_step],
             np.ones(self.batch_size) * self.pv_gen[self.current_step],
+            np.ones(self.batch_size) * pv_gen_prediction[0],
+            np.ones(self.batch_size) * pv_gen_prediction[1],
+            np.ones(self.batch_size) * pv_gen_prediction[2],
+            np.ones(self.batch_size) * pv_gen_prediction[3],
+            np.ones(self.batch_size) * pv_gen_prediction[4],
+            np.ones(self.batch_size) * pv_gen_prediction[5],
             np.ones(self.batch_size) * self.demand[self.current_step],
+            np.ones(self.batch_size) * demand_prediction[0],
+            np.ones(self.batch_size) * demand_prediction[1],
+            np.ones(self.batch_size) * demand_prediction[2],
+            np.ones(self.batch_size) * demand_prediction[3],
+            np.ones(self.batch_size) * demand_prediction[4],
+            np.ones(self.batch_size) * demand_prediction[5],
             np.ones(self.batch_size) * self.price[self.current_step],
             np.ones(self.batch_size) * self.price[self.current_step] * self.grid_sell_rate,
             np.ones(self.batch_size) * self.emission[self.current_step],
@@ -265,11 +281,11 @@ class SimpleMicrogrid():
 
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
-            self.net_energy[:,self.current_step] * self.price[self.current_step] * self.grid_sell_rate
+            (self.net_energy[:,self.current_step] + i_action) * (self.price[self.current_step] + self.emission[self.current_step]),
+            (self.net_energy[:,self.current_step] - i_action) * self.price[self.current_step] * self.grid_sell_rate
         ).reshape(self.batch_size,1)
 
-        # self.unused_energy_penalty = 1
+        # self.unused_energy_penalty = 0.3
 
         # cost += (unused_battery + unused_pv).reshape(cost.shape) * self.unused_energy_penalty
 

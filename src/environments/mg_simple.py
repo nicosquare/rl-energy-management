@@ -21,19 +21,35 @@ class MGSimple(Env):
         
             0 hour_of_day: [0, 23]
             1 temperature: [29, 31]
-            2 pv_generation: [0, 1]
-            3 demand: [0, 1]
-            4 grid_sell_price: [0, 1]
-            5 grid_buy_price: [0, 1]
-            6 grid_emission_factor: [0, 1]
-            7 soc: [0,1]
+            2 pv_generation_t: [0, 1]
+            3 pv_generation_t+1: [0, 1]
+            4 pv_generation_t+2: [0, 1]
+            5 pv_generation_t+3: [0, 1]
+            6 pv_generation_t+4: [0, 1]
+            7 pv_generation_t+5: [0, 1]
+            8 pv_generation_t+6: [0, 1]
+            9 demand_t: [0, 1]
+            10 demand_t+1: [0, 1]
+            11 demand_t+2: [0, 1]
+            12 demand_t+3: [0, 1]
+            13 demand_t+4: [0, 1]
+            14 demand_t+5: [0, 1]
+            15 demand_t+6: [0, 1]
+            16 grid_sell_price: [0, 1]
+            17 grid_buy_price: [0, 1]
+            18 grid_emission_factor: [0, 1]
+            19 soc: [0,1]
         
         """
 
         self.batch_size = batch_size
 
-        low_limit_obs = np.float32(np.array([0.0, 29.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
-        high_limit_obs = np.float32(np.array([23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]))
+        low_limit_obs = np.float32(np.array([
+            0.0, 29.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        ]))
+        high_limit_obs = np.float32(np.array([
+            23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
+        ]))
 
         self.observation_space = Box(
             low=low_limit_obs,
