@@ -256,6 +256,11 @@ class Agent:
     def train(self, training_steps: int = 1000, min_loss: float = 0.01, epsilon: float = 0.0):
 
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
+        all_states = np.array(all_states)
+        all_rewards = np.array(all_rewards)
+        all_actions = np.array(all_actions)
+        all_net_energy = np.array(all_net_energy)
+
 
         init_epsilon = epsilon
         final_epsilon = 0.1 * epsilon
@@ -265,20 +270,20 @@ class Agent:
             # Perform rollouts and sample trajectories
 
             states, rewards, log_probs, actions_hist = self.rollout(epsilon=epsilon)
-
+            states = np.array(states)
             # Append the trajectories to the arrays
 
-            all_states.append(states)
-            all_rewards.append(rewards)
-            all_actions.append(actions_hist)
-            all_net_energy.append(self.env.mg.net_energy)
+            np.append(all_states, states)
+            np.append(all_rewards, rewards)
+            np.append(all_actions, actions_hist)
+            np.append(all_net_energy, self.env.mg.net_energy)
 
             # Perform the optimization step
 
             log_probs = torch.stack(log_probs, dim=0)
 
-            states = tensor(np.array(states)).float().to(self.device)
-            value = self.critic(states).squeeze(dim=-1)
+            states_tensor = tensor(states).float().to(self.device)
+            value = self.critic(states_tensor).squeeze(dim=-1)
 
             # Causality trick considering gamma
 
@@ -322,7 +327,7 @@ class Agent:
 
             epsilon -= (init_epsilon - final_epsilon) / int(training_steps / 3)
 
-            if step % 100 == 0 or stop_condition:
+            if step % 50 == 0 or stop_condition:
 
                 # Wandb logging
 
@@ -331,11 +336,12 @@ class Agent:
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
-                }
+                    "last_soc": np.mean(states[-1,:,7]) #last soc
+                } # np.mean(states[:,:,7], axis=1) # avg of each time step
 
                 self.wdb_logger.log_dict(results)
 
-            if step % 50 == 0:
+            if step % 250 == 0:
 
                 # Save networks weights for resume training
 
@@ -381,8 +387,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args([])
 
-    parser.add_argument("-y", "--yaml", default=False, help="Load params from yaml file")
-    parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
+    parser.add_argument("-y", "--yaml", default=True, help="Load params from yaml file")
+    parser.add_argument("-dl", "--disable_logging", default=True, action="store_true", help="Disable logging")
     parser.add_argument("-bs", "--batch_size", default=1, type=int, help="Batch size")
     parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
     parser.add_argument("-rs", "--rollout_steps", default=8759, type=int, help="Steps for the rollout loop")
