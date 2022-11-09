@@ -48,3 +48,9 @@ conda activate rl_energy
 
 ## Datasets
 
+## Packages
+pyyaml
+numpy
+pytorch
+wandb
+matplot

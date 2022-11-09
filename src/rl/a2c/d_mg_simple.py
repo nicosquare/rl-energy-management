@@ -6,8 +6,9 @@
 
 """
 
-from os import stat
+from os import path
 import traceback
+import yaml
 import numpy as np
 import torch
 import argparse
@@ -26,8 +27,8 @@ from src.environments.mg_simple import MGSimple
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
-
-zero = 1e-5
+CONFIG_PATH = "config/"
+ZERO = 1e-5
 
 '''
     Agent definitions
@@ -39,6 +40,11 @@ def set_all_seeds(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
+# Function to load yaml configuration file
+def load_config(config_name):
+    with open(path.join(CONFIG_PATH, config_name)) as file:
+        config = yaml.safe_load(file)
+    return config
 
 # class Actor(Module):
 
@@ -103,10 +109,10 @@ class Agent:
     def __init__(
         self, env: Env, actor_nn: int = 64, critic_nn: int = 64, actor_lr: float = 1e-4, critic_lr: float = 1e-4, gamma: float = 0.9,
         batch_size: int = 1, resumed: bool = False, extended_obs: bool = False, disable_wandb: bool = False, wandb_dict: dict = None,
-        enable_gpu: bool = False
+        enable_gpu: bool = False, num_disc_act: int = 40,
     ):
 
-        self.discrete_actions = np.linspace(-0.9, 0.9, 40)
+        self.discrete_actions = np.linspace(-0.9, 0.9, num_disc_act)
         # self.discrete_actions = np.logspace(-0.8, 0.8, 40)
         
         # Parameter initialization
@@ -259,9 +265,8 @@ class Agent:
             # Perform rollouts and sample trajectories
 
             states, rewards, log_probs, actions_hist = self.rollout(epsilon=epsilon)
-
+            states = np.array(states)
             # Append the trajectories to the arrays
-
             all_states.append(states)
             all_rewards.append(rewards)
             all_actions.append(actions_hist)
@@ -271,8 +276,8 @@ class Agent:
 
             log_probs = torch.stack(log_probs, dim=0)
 
-            states = tensor(np.array(states)).float().to(self.device)
-            value = self.critic(states).squeeze(dim=-1)
+            states_tensor = tensor(states).float().to(self.device)
+            value = self.critic(states_tensor).squeeze(dim=-1)
 
             # Causality trick considering gamma
 
@@ -316,7 +321,7 @@ class Agent:
 
             epsilon -= (init_epsilon - final_epsilon) / int(training_steps / 3)
 
-            if step % 100 == 0 or stop_condition:
+            if step % 50 == 0 or stop_condition:
 
                 # Wandb logging
 
@@ -325,11 +330,12 @@ class Agent:
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
-                }
+                    # "last_soc": np.mean(states[-1,:,7]) #last soc
+                } # np.mean(states[:,:,7], axis=1) # avg of each time step
 
                 self.wdb_logger.log_dict(results)
 
-            if step % 50 == 0:
+            if step % 250 == 0:
 
                 # Save networks weights for resume training
 
@@ -367,13 +373,15 @@ class Agent:
 """
 
 if __name__ == '__main__':
-
+    config = load_config("d_a2c.yaml")
+    config = config['train']
     # Read arguments from command line
 
     parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
 
     args = parser.parse_args([])
 
+    parser.add_argument("-y", "--yaml", default=True, help="Load params from yaml file")
     parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
     parser.add_argument("-bs", "--batch_size", default=1, type=int, help="Batch size")
     parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
@@ -382,6 +390,7 @@ if __name__ == '__main__':
     parser.add_argument("-clr", "--critic_lr", default=1e-3, type=float, help="Critic learning rate")
     parser.add_argument("-ann", "--actor_nn", default=256, type=int, help="Actor hidden layer number of neurons")
     parser.add_argument("-cnn", "--critic_nn", default=256, type=int, help="Critic hidden layer number of neurons")
+    parser.add_argument("-nda", "--num_disc_act", default=40, type=int, help="Number of Discrete Actions")
     parser.add_argument("-g", "--gamma", default=0.95, type=float, help="Critic hidden layer number of neurons")
     parser.add_argument("-gpu", "--enable_gpu", default=False, action="store_true", help="Device to use for training")
     parser.add_argument("-ca", "--central_agent", default=False, action="store_true", help="Central agent")
@@ -394,23 +403,47 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Get arguments from command line
+    use_yaml = args.yaml
+    if use_yaml:
+        print('Run yaml')
+        disable_logging = config['disable_logging']
+        batch_size = config['batch_size']
+        training_steps = config['training_steps']
+        rollout_steps = config['rollout_steps']
+        actor_lr = config['actor_lr']
+        critic_lr = config['critic_lr']
+        actor_nn = config['actor_nn']
+        critic_nn = config['critic_nn']
+        gamma = config['gamma']
+        enable_gpu = config['enable_gpu']
+        central_agent = config['central_agent']
+        random_soc_0 = config['random_soc_0']
+        encoding = config['encoding']
+        extended_observation = config['extended_observation']
+        epsilon = config['epsilon']
+        disable_noise = config['disable_noise']
+        num_disc_act = config['num_disc_act']
+    else:
+        print('Use params')
+        disable_logging = args.disable_logging
+        batch_size = args.batch_size
+        training_steps = args.training_steps
+        rollout_steps = args.rollout_steps
+        actor_lr = args.actor_lr
+        critic_lr = args.critic_lr
+        actor_nn = args.actor_nn
+        critic_nn = args.critic_nn
+        gamma = args.gamma
+        enable_gpu = args.enable_gpu
+        central_agent = args.central_agent
+        random_soc_0 = args.random_soc_0
+        encoding = args.encoding
+        extended_observation = args.extended_observation
+        epsilon = args.epsilon
+        disable_noise = args.disable_noise
+        num_disc_act = args.num_disc_act
+    
 
-    disable_logging = args.disable_logging
-    batch_size = args.batch_size
-    training_steps = args.training_steps
-    rollout_steps = args.rollout_steps
-    actor_lr = args.actor_lr
-    critic_lr = args.critic_lr
-    actor_nn = args.actor_nn
-    critic_nn = args.critic_nn
-    gamma = args.gamma
-    enable_gpu = args.enable_gpu
-    central_agent = args.central_agent
-    random_soc_0 = args.random_soc_0
-    encoding = args.encoding
-    extended_observation = args.extended_observation
-    epsilon = args.epsilon
-    disable_noise = args.disable_noise
 
     # Start wandb logger
 
@@ -434,6 +467,7 @@ if __name__ == '__main__':
             "encoding": encoding,
             "extended_observation": extended_observation,
             "epsilon": epsilon,
+            "num_disc_act": num_disc_act,
         }
 
         '''
@@ -453,7 +487,7 @@ if __name__ == '__main__':
 
         agent = Agent(
             env=my_env, critic_lr=critic_lr, actor_lr=actor_lr, actor_nn=actor_nn, critic_nn=critic_nn, batch_size=batch_size, gamma=gamma,
-            extended_obs=extended_observation, wandb_dict=wdb_config, enable_gpu=enable_gpu, disable_wandb=disable_logging,
+            extended_obs=extended_observation, wandb_dict=wdb_config, enable_gpu=enable_gpu, disable_wandb=disable_logging,num_disc_act=num_disc_act
         )
 
         # Launch the training
