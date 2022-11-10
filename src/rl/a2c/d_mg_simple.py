@@ -46,24 +46,6 @@ def load_config(config_name):
         config = yaml.safe_load(file)
     return config
 
-# class Actor(Module):
-
-#     def __init__(self, state_size, num_actions, hidden_size=64):
-#         super(Actor, self).__init__()
-
-#         # Define the independent inputs
-
-#         self.input = Linear(state_size, hidden_size)
-#         self.output = Linear(hidden_size, num_actions)
-
-#     def forward(self, state: Tensor) -> Tensor:
-
-#         state = F.relu(self.input(state))
-
-#         output = F.softmax(self.output(state), dim=1)
-
-#         return output
-
 class Actor(Module):
 
     def __init__(self, state_size, num_actions, hidden_size=64):
@@ -72,17 +54,35 @@ class Actor(Module):
         # Define the independent inputs
 
         self.input = Linear(state_size, hidden_size)
-        self.fc_1 = Linear(hidden_size, hidden_size * 2)
-        self.output = Linear(hidden_size * 2, num_actions)
+        self.output = Linear(hidden_size, num_actions)
 
     def forward(self, state: Tensor) -> Tensor:
 
         state = F.relu(self.input(state))
-        state = F.relu(self.fc_1(state))
 
         output = F.softmax(self.output(state), dim=1)
 
         return output
+
+# class Actor(Module):
+
+#     def __init__(self, state_size, num_actions, hidden_size=64):
+#         super(Actor, self).__init__()
+
+#         # Define the independent inputs
+
+#         self.input = Linear(state_size, hidden_size)
+#         self.fc_1 = Linear(hidden_size, hidden_size * 2)
+#         self.output = Linear(hidden_size * 2, num_actions)
+
+#     def forward(self, state: Tensor) -> Tensor:
+
+#         state = F.relu(self.input(state))
+#         state = F.relu(self.fc_1(state))
+
+#         output = F.softmax(self.output(state), dim=1)
+
+#         return output
 
 
 class Critic(Module):
@@ -103,7 +103,6 @@ class Critic(Module):
 
         return output
 
-
 class Agent:
 
     def __init__(
@@ -113,7 +112,6 @@ class Agent:
     ):
 
         self.discrete_actions = np.linspace(-0.9, 0.9, num_disc_act)
-        # self.discrete_actions = np.logspace(-0.8, 0.8, 40)
         
         # Parameter initialization
 
@@ -141,11 +139,11 @@ class Agent:
 
             print('This model does not support extended observations yet')
 
-            num_inputs = env.observation_space.shape[0]
+            num_inputs = env.obs_size
 
         else:
 
-            num_inputs = env.observation_space.shape[0]
+            num_inputs = env.obs_size
 
         # Configure neural networks
 
@@ -183,7 +181,7 @@ class Agent:
 
         return wdb_logger
 
-    def select_action(self, state: Tensor, epsilon: float):
+    def select_action(self, state: Tensor):
 
         probs = self.actor(state)
 
@@ -191,17 +189,10 @@ class Agent:
 
         dist = Categorical(probs=probs)
 
-        # Sample action from the distribution with a percentage of epsilon-randomness
+        # Sample action 
 
-        if np.random.random() < epsilon:
-
-            action = np.random.choice(self.discrete_actions, self.batch_size).reshape(self.batch_size, 1)
-            action_index = tensor([np.where(self.discrete_actions == a)[0][0] for a in action]).to(self.device)
-
-        else:
-
-            action_index = dist.sample()
-            action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
+        action_index = dist.sample()
+        action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
 
         log_prob = dist.log_prob(action_index)
 
@@ -213,7 +204,7 @@ class Agent:
 
         return state
 
-    def rollout(self, epsilon: float = 0.0):
+    def rollout(self):
 
         states, rewards, log_probs, actions_hist = [], [], [], []
 
@@ -234,7 +225,7 @@ class Agent:
 
             # Perform action and pass to next state
 
-            actions, log_prob = self.select_action(tensor(state).float().to(self.device), epsilon=epsilon)
+            actions, log_prob = self.select_action(tensor(state).float().to(self.device))
 
             state, reward, done, _ = self.env.step(actions)
 
@@ -251,20 +242,18 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
-    def train(self, training_steps: int = 1000, min_loss: float = 0.01, epsilon: float = 0.0):
+    def train(self, training_steps: int = 1000, min_loss: float = 0.01):
 
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
-
-        init_epsilon = epsilon
-        final_epsilon = 0.1 * epsilon
 
         for step in tqdm(range(self.current_step, training_steps)):
 
             # Perform rollouts and sample trajectories
 
-            states, rewards, log_probs, actions_hist = self.rollout(epsilon=epsilon)
-            states = np.array(states)
+            states, rewards, log_probs, actions_hist = self.rollout()
+            
             # Append the trajectories to the arrays
+
             all_states.append(states)
             all_rewards.append(rewards)
             all_actions.append(actions_hist)
@@ -274,8 +263,8 @@ class Agent:
 
             log_probs = torch.stack(log_probs, dim=0)
 
-            states_tensor = tensor(states).float().to(self.device)
-            value = self.critic(states_tensor).squeeze(dim=-1)
+            states = tensor(np.array(states)).float().to(self.device)
+            value = self.critic(states).squeeze(dim=-1)
 
             # Causality trick considering gamma
 
@@ -314,11 +303,7 @@ class Agent:
             # Check stop condition
 
             stop_condition = actor_loss.abs().item() <= min_loss and critic_loss.abs().item() <= min_loss
-
-            # Update alpha
-
-            epsilon -= (init_epsilon - final_epsilon) / int(training_steps / 3)
-
+            
             if step % 50 == 0 or stop_condition:
 
                 # Wandb logging
@@ -328,8 +313,7 @@ class Agent:
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
-                    # "last_soc": np.mean(states[-1,:,7]) #last soc
-                } # np.mean(states[:,:,7], axis=1) # avg of each time step
+                }
 
                 self.wdb_logger.log_dict(results)
 
@@ -361,7 +345,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/model.pt')
+        }, f'{model_path}/d_a2c_c_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -396,7 +380,6 @@ if __name__ == '__main__':
     parser.add_argument("-dn", "--disable_noise", default=False, action="store_true", help="Disable noise from data generation")
     parser.add_argument("-e", "--encoding", default=False, action="store_true", help="Enable encoding")
     parser.add_argument("-xobs", "--extended_observation", default=False, action="store_true", help="Extended observation")
-    parser.add_argument("-eps", "--epsilon", default=0.0, type=float, help="Epsilon for define randomness in actions")
 
     args = parser.parse_args()
 
@@ -418,7 +401,6 @@ if __name__ == '__main__':
         random_soc_0 = config['random_soc_0']
         encoding = config['encoding']
         extended_observation = config['extended_observation']
-        epsilon = config['epsilon']
         disable_noise = config['disable_noise']
         num_disc_act = config['num_disc_act']
     else:
@@ -437,7 +419,6 @@ if __name__ == '__main__':
         random_soc_0 = args.random_soc_0
         encoding = args.encoding
         extended_observation = args.extended_observation
-        epsilon = args.epsilon
         disable_noise = args.disable_noise
         num_disc_act = args.num_disc_act
     
@@ -464,7 +445,6 @@ if __name__ == '__main__':
             "random_soc_0": random_soc_0,
             "encoding": encoding,
             "extended_observation": extended_observation,
-            "epsilon": epsilon,
             "num_disc_act": num_disc_act,
         }
 
@@ -490,7 +470,7 @@ if __name__ == '__main__':
 
         # Launch the training
 
-        agent.train(training_steps=training_steps, epsilon=epsilon)
+        agent.train(training_steps=training_steps)
 
         # Finish wandb process
 

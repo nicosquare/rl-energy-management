@@ -223,32 +223,20 @@ class SimpleMicrogrid():
 
     def observe(self) -> np.ndarray:
 
-        prediction_indexes = (self.current_step + 1 + np.arange(0,6)) % self.steps
-        pv_gen_prediction = self.pv_gen[prediction_indexes]
-        demand_prediction = self.demand[prediction_indexes]
+        terminal = self.current_step >= self.steps
 
-        return np.stack([
-            np.ones(self.batch_size) * self.current_step % 24,
-            np.ones(self.batch_size) * self.temp[self.current_step],
-            np.ones(self.batch_size) * self.pv_gen[self.current_step],
-            np.ones(self.batch_size) * pv_gen_prediction[0],
-            np.ones(self.batch_size) * pv_gen_prediction[1],
-            np.ones(self.batch_size) * pv_gen_prediction[2],
-            np.ones(self.batch_size) * pv_gen_prediction[3],
-            np.ones(self.batch_size) * pv_gen_prediction[4],
-            np.ones(self.batch_size) * pv_gen_prediction[5],
-            np.ones(self.batch_size) * self.demand[self.current_step],
-            np.ones(self.batch_size) * demand_prediction[0],
-            np.ones(self.batch_size) * demand_prediction[1],
-            np.ones(self.batch_size) * demand_prediction[2],
-            np.ones(self.batch_size) * demand_prediction[3],
-            np.ones(self.batch_size) * demand_prediction[4],
-            np.ones(self.batch_size) * demand_prediction[5],
-            np.ones(self.batch_size) * self.price[self.current_step],
-            np.ones(self.batch_size) * self.price[self.current_step] * self.grid_sell_rate,
-            np.ones(self.batch_size) * self.emission[self.current_step],
-            self.battery.soc.squeeze(axis=-1)
-        ], axis=1)
+        if not terminal:
+
+            state = np.stack([
+                np.ones(self.batch_size) * self.current_step % 24,
+                self.battery.soc.squeeze(axis=-1)
+            ], axis=1)
+
+        else:
+
+            state = np.zeros((self.batch_size, 2))
+
+        return state
 
     def apply_action(self, batt_action: np.array) -> Union[np.ndarray, np.ndarray]:
 
@@ -261,22 +249,6 @@ class SimpleMicrogrid():
 
         self.net_energy[:,self.current_step] += (self.remaining_energy[self.current_step] + p_charge - p_discharge).squeeze()
 
-        # Compute penalization for not using energy from the battery
-
-        unused_battery = np.where(
-            self.net_energy[:,self.current_step] > 0,
-            np.minimum(self.net_energy[:,self.current_step], self.battery.capacity_to_discharge.squeeze()),
-            0
-        )
-
-        # Compute penalization for not using energy from the PV
-
-        unused_pv = np.where(
-            self.net_energy[:,self.current_step] < 0,
-            np.minimum(-self.net_energy[:,self.current_step], self.battery.capacity_to_charge.squeeze()),
-            0
-        )
-
         # Compute cost
 
         cost = np.where(
@@ -284,12 +256,10 @@ class SimpleMicrogrid():
             (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
             (self.net_energy[:,self.current_step]) * self.price[self.current_step] * self.grid_sell_rate
         ).reshape(self.batch_size,1)
-
-        # self.unused_energy_penalty = 0.3
-
-        # cost += (unused_battery + unused_pv).reshape(cost.shape) * self.unused_energy_penalty
         
-        return -cost
+        self.increment_step()
+
+        return self.observe(), -cost
 
     def increment_step(self) -> None:
         self.current_step += 1

@@ -5,13 +5,11 @@ train:
   rollout_steps: 24
   num_disc_act: 12
   actor_lr: 0.00008
-  critic_lr: 0.0001
   actor_nn: 256
-  critic_nn: 256
   gamma: 0.90
   random_soc_0: False
   disable_noise: True
-  disable_logging: False
+  disable_logging: True
   enable_gpu: True
   central_agent: False
   encoding: False

@@ -3,6 +3,7 @@ import numpy as np
 from gym import Env
 from gym.spaces import Box
 
+from src.utils.preprocessing import OneHotEncoding, NoNormalization
 from src.components.microgrid_simple import SimpleMicrogrid
 
 class MGSimple(Env):
@@ -20,36 +21,19 @@ class MGSimple(Env):
         Observation space is composed by:
         
             0 hour_of_day: [0, 23]
-            1 temperature: [29, 31]
-            2 pv_generation_t: [0, 1]
-            3 pv_generation_t+1: [0, 1]
-            4 pv_generation_t+2: [0, 1]
-            5 pv_generation_t+3: [0, 1]
-            6 pv_generation_t+4: [0, 1]
-            7 pv_generation_t+5: [0, 1]
-            8 pv_generation_t+6: [0, 1]
-            9 demand_t: [0, 1]
-            10 demand_t+1: [0, 1]
-            11 demand_t+2: [0, 1]
-            12 demand_t+3: [0, 1]
-            13 demand_t+4: [0, 1]
-            14 demand_t+5: [0, 1]
-            15 demand_t+6: [0, 1]
-            16 grid_sell_price: [0, 1]
-            17 grid_buy_price: [0, 1]
-            18 grid_emission_factor: [0, 1]
-            19 soc: [0,1]
+            1 soc: [0,1]
         
         """
 
         self.batch_size = batch_size
 
-        low_limit_obs = np.float32(np.array([
-            0.0, 29.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        ]))
-        high_limit_obs = np.float32(np.array([
-            23.0, 31.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-        ]))
+        low_limit_obs = np.float32(np.array([0.0, 0.0]))
+        high_limit_obs = np.float32(np.array([23.0, 1.0]))
+
+        self.encoders = [
+            OneHotEncoding(range(24)), # Hour of day
+            NoNormalization() # SOC
+        ]
 
         self.observation_space = Box(
             low=low_limit_obs,
@@ -58,9 +42,15 @@ class MGSimple(Env):
             dtype=np.float32
         )
 
+        # Get the real size of the observation with the encoding
+
+        self.obs_size = self.normalize_obs(obs=np.array([low_limit_obs])).shape[1]
+
         """
         Action space is composed by:
-            batt_action: [-1, 1]
+
+            0 batt_action: [-1, 1]
+        
         """
 
         low_limit_action = np.float32(np.array([-1.0]))
@@ -79,25 +69,15 @@ class MGSimple(Env):
         )
 
     def observe(self):
-        return self.mg.observe()
+        return self.normalize_obs(self.mg.observe())
 
     def step(self, action: np.ndarray):
 
+        state, reward = self.mg.apply_action(batt_action=action)
+        state = self.normalize_obs(state)
         done = self.mg.current_step >= self.mg.steps
         info = {}
-        
-        if not done:
             
-            reward = self.mg.apply_action(batt_action=action)
-            state = self.mg.observe()
-
-            self.mg.increment_step()
-            
-        else:
-                
-            state = np.zeros(self.observation_space.shape)
-            reward = np.zeros((self.batch_size, 1))
-
         return state, reward, done, info
 
     def reset(self):
@@ -106,3 +86,17 @@ class MGSimple(Env):
 
     def render(self, mode="human"):
         print('Rendering not defined yet')
+
+    def normalize_obs(self, obs):
+
+        encoded_obs = None
+
+        for i, encoder in enumerate(self.encoders):
+
+            if encoded_obs is None:
+                encoded_obs = encoder*obs[:,i]
+            else:
+                encoded_obs = np.insert(encoded_obs, -1, encoder*obs[:,i], axis=1)
+
+        return encoded_obs
+    
