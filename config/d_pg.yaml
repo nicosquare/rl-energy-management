@@ -12,6 +12,6 @@ train:
   disable_logging: True
   enable_gpu: True
   central_agent: False
-  encoding: False
+  encoding: True
   extended_observation: False 
 # reward?

@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from gym import Env
 from torch import Tensor, tensor
-from torch.nn import Module, Linear, MSELoss
+from torch.nn import Module, Linear
 from torch.functional import F
 from torch.optim import Adam
 from torch.distributions import Categorical
@@ -27,6 +27,7 @@ from src.environments.mg_simple import MGSimple
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
+
 CONFIG_PATH = "config/"
 ZERO = 1e-5
 
@@ -40,8 +41,10 @@ def set_all_seeds(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-# Function to load yaml configuration file
+# Function to load yaml configuration 
+
 def load_config(config_name):
+    
     with open(path.join(CONFIG_PATH, config_name)) as file:
         config = yaml.safe_load(file)
     return config
@@ -408,7 +411,7 @@ if __name__ == '__main__':
 
         my_env = MGSimple(
             batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_grid_gen = 1, peak_load = 1,
-            random_soc_0=random_soc_0, disable_noise=disable_noise
+            random_soc_0=random_soc_0, disable_noise=disable_noise, encoding=encoding
         )
 
         # Instantiate the agent

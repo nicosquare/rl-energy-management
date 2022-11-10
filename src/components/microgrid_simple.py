@@ -234,7 +234,10 @@ class SimpleMicrogrid():
 
         else:
 
-            state = np.zeros((self.batch_size, 2))
+            state = np.stack([
+                np.zeros(self.batch_size),
+                np.ones(self.batch_size) * self.battery.soc_min
+            ], axis=1)
 
         return state
 

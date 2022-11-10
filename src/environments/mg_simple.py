@@ -10,7 +10,7 @@ class MGSimple(Env):
 
     def __init__(
         self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
-        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
+        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False, encoding: bool = True
     ):
         
         """
@@ -26,6 +26,7 @@ class MGSimple(Env):
         """
 
         self.batch_size = batch_size
+        self.encoding = encoding
 
         low_limit_obs = np.float32(np.array([0.0, 0.0]))
         high_limit_obs = np.float32(np.array([23.0, 1.0]))
@@ -91,12 +92,17 @@ class MGSimple(Env):
 
         encoded_obs = None
 
-        for i, encoder in enumerate(self.encoders):
+        if self.encoding:
 
-            if encoded_obs is None:
-                encoded_obs = encoder*obs[:,i]
-            else:
-                encoded_obs = np.insert(encoded_obs, -1, encoder*obs[:,i], axis=1)
+            for i, encoder in enumerate(self.encoders):
+
+                if encoded_obs is None:
+                    encoded_obs = encoder*obs[:,i]
+                else:
+                    encoded_obs = np.insert(encoded_obs, encoded_obs.shape[1], encoder*obs[:,i], axis=1)
+        else:
+
+            encoded_obs = obs
 
         return encoded_obs
     

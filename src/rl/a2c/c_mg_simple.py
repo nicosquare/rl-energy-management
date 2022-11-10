@@ -6,9 +6,10 @@
 
 """
 
-from os import stat
+from os import path
 import traceback
 import numpy as np
+import yaml
 import torch
 import argparse
 from tqdm import tqdm
@@ -25,6 +26,12 @@ from src.environments.mg_simple import MGSimple
 
 torch.autograd.set_detect_anomaly(True)
 
+
+# Define global variables
+
+CONFIG_PATH = "config/"
+ZERO = 1e-5
+
 # Define global variables
 
 zero = 1e-5
@@ -39,6 +46,13 @@ def set_all_seeds(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
+# Function to load yaml configuration 
+
+def load_config(config_name):
+    
+    with open(path.join(CONFIG_PATH, config_name)) as file:
+        config = yaml.safe_load(file)
+    return config
 
 class Actor(Module):
 
@@ -344,12 +358,16 @@ class Agent:
 
 if __name__ == '__main__':
 
+    config = load_config("c_a2c.yaml")
+    config = config['train']
+
     # Read arguments from command line
 
     parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
 
     args = parser.parse_args([])
 
+    parser.add_argument("-y", "--yaml", default=True, help="Load params from yaml file")
     parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
     parser.add_argument("-bs", "--batch_size", default=1, type=int, help="Batch size")
     parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
@@ -370,20 +388,47 @@ if __name__ == '__main__':
 
     # Get arguments from command line
 
-    disable_logging = args.disable_logging
-    batch_size = args.batch_size
-    training_steps = args.training_steps
-    rollout_steps = args.rollout_steps
-    actor_lr = args.actor_lr
-    critic_lr = args.critic_lr
-    actor_nn = args.actor_nn
-    critic_nn = args.critic_nn
-    gamma = args.gamma
-    enable_gpu = args.enable_gpu
-    central_agent = args.central_agent
-    random_starting_step = args.random_soc_0
-    encoding = args.encoding
-    extended_observation = args.extended_observation
+    use_yaml = args.yaml
+    
+    if use_yaml:
+
+        print('Run yaml')
+
+        disable_logging = config['disable_logging']
+        batch_size = config['batch_size']
+        training_steps = config['training_steps']
+        rollout_steps = config['rollout_steps']
+        actor_lr = config['actor_lr']
+        critic_lr = config['critic_lr']
+        actor_nn = config['actor_nn']
+        critic_nn = config['critic_nn']
+        gamma = config['gamma']
+        enable_gpu = config['enable_gpu']
+        central_agent = config['central_agent']
+        random_soc_0 = config['random_soc_0']
+        encoding = config['encoding']
+        extended_observation = config['extended_observation']
+        disable_noise = config['disable_noise']
+        num_disc_act = config['num_disc_act']
+
+    else:
+        
+        print('Use params')
+
+        disable_logging = args.disable_logging
+        batch_size = args.batch_size
+        training_steps = args.training_steps
+        rollout_steps = args.rollout_steps
+        actor_lr = args.actor_lr
+        critic_lr = args.critic_lr
+        actor_nn = args.actor_nn
+        critic_nn = args.critic_nn
+        gamma = args.gamma
+        enable_gpu = args.enable_gpu
+        central_agent = args.central_agent
+        random_starting_step = args.random_soc_0
+        encoding = args.encoding
+        extended_observation = args.extended_observation
 
     # Start wandb logger
 

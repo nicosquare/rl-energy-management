@@ -27,6 +27,7 @@ from src.environments.mg_simple import MGSimple
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
+
 CONFIG_PATH = "config/"
 ZERO = 1e-5
 
@@ -41,6 +42,7 @@ def set_all_seeds(seed):
     torch.backends.cudnn.deterministic = True
 
 # Function to load yaml configuration file
+
 def load_config(config_name):
     with open(path.join(CONFIG_PATH, config_name)) as file:
         config = yaml.safe_load(file)
@@ -355,8 +357,10 @@ class Agent:
 """
 
 if __name__ == '__main__':
+
     config = load_config("d_a2c.yaml")
     config = config['train']
+    
     # Read arguments from command line
 
     parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
@@ -384,9 +388,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Get arguments from command line
+
     use_yaml = args.yaml
+    
     if use_yaml:
+
         print('Run yaml')
+
         disable_logging = config['disable_logging']
         batch_size = config['batch_size']
         training_steps = config['training_steps']
@@ -403,8 +411,11 @@ if __name__ == '__main__':
         extended_observation = config['extended_observation']
         disable_noise = config['disable_noise']
         num_disc_act = config['num_disc_act']
+
     else:
+        
         print('Use params')
+
         disable_logging = args.disable_logging
         batch_size = args.batch_size
         training_steps = args.training_steps
