@@ -1,14 +1,12 @@
 """
 
-    Advantage Actor Critic (A2C) with causality algorithm implementation
+    Policy Gradient with causality algorithm implementation
 
     Credits: Nicolás Cuadrado, Alejandro Gutierrez, MBZUAI, OptMLLab
 
 """
 
-from os import path
 import traceback
-import yaml
 import numpy as np
 import torch
 import argparse
@@ -23,32 +21,17 @@ from torch.distributions import Categorical
 
 from src.utils.wandb_logger import WandbLogger
 from src.environments.mg_simple import MGSimple
+from src.utils.tools import set_all_seeds, load_config
 
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
 
-CONFIG_PATH = "config/"
 ZERO = 1e-5
 
 '''
     Agent definitions
 '''
-
-def set_all_seeds(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-
-# Function to load yaml configuration 
-
-def load_config(config_name):
-    
-    with open(path.join(CONFIG_PATH, config_name)) as file:
-        config = yaml.safe_load(file)
-    return config
-
 class Actor(Module):
 
     def __init__(self, state_size, num_actions, hidden_size=64):
@@ -67,50 +50,67 @@ class Actor(Module):
 
         return output
 
-# class Actor(Module):
-
-#     def __init__(self, state_size, num_actions, hidden_size=64):
-#         super(Actor, self).__init__()
-
-#         # Define the independent inputs
-
-#         self.input = Linear(state_size, hidden_size)
-#         self.fc_1 = Linear(hidden_size, hidden_size * 2)
-#         self.output = Linear(hidden_size * 2, num_actions)
-
-#     def forward(self, state: Tensor) -> Tensor:
-
-#         state = F.relu(self.input(state))
-#         state = F.relu(self.fc_1(state))
-
-#         output = F.softmax(self.output(state), dim=1)
-
-#         return output
-
 class Agent:
 
     def __init__(
-        self, env: Env, actor_nn: int = 64, actor_lr: float = 1e-4, gamma: float = 0.9,
-        batch_size: int = 1, resumed: bool = False, extended_obs: bool = False, disable_wandb: bool = False, wandb_dict: dict = None,
-        enable_gpu: bool = False, num_disc_act: int = 40,
+        self,config, env: Env,  resumed: bool = False 
     ):
 
-        self.discrete_actions = np.linspace(-0.9, 0.9, num_disc_act)
-        
-        # Parameter initialization
-
+        # Get env and its params
         self.env = env
-        self.batch_size = batch_size
+        self.batch_size = config['env']['batch_size']
+        self.rollout_steps = config['env']['rollout_steps']
+        self.training_steps = config['env']['training_steps']
+        self.encoding = config['env']['encoding']
+        self.random_soc_0 = config['env']['random_soc_0']
+        self.central_agent = config['env']['central_agent']
+        self.disable_noise = config['env']['disable_noise']
+        
+        config = config['agent']
+        # Get params from yaml config file
+        self.num_disc_act = config['num_disc_act']
+        self.actor_lr = config['actor_lr']
+        self.actor_nn = config['actor_nn']
+        self.gamma = config['gamma']
+        self.disable_logging = config['disable_logging']
+        self.enable_gpu = config['enable_gpu']
+        self.extended_observation = config['extended_observation']
+        # self.early_stop = config['early_stop'] #TODO review this name and min loss
+        self.min_loss = 0.01
+
+        # Other params 
         self.resumed = resumed
         self.current_step = 0
-        self.gamma = gamma
-        self.extended_obs = extended_obs
 
-        self.wdb_logger = self.setup_wandb_logger(config=wandb_dict, tags=["a2c-caus", "discrete"], disabled=disable_wandb)
+        '''
+            Setup all the configurations for Wandb
+        '''
+
+        #TODO review all params are uploaded
+        wdb_config={
+            "training_steps": self.training_steps,
+            "batch_size": self.batch_size,
+            "rollout_steps": self.rollout_steps,
+            "agent_actor_lr": self.actor_lr,
+            "agent_actor_nn": self.actor_nn,
+            "gamma": self.gamma,
+            "central_agent": self.central_agent,
+            "random_soc_0": self.random_soc_0,
+            "encoding": self.encoding,
+            "extended_observation": self.extended_observation,
+            "num_disc_act": self.num_disc_act,
+            "disable_noise": self.disable_noise
+        }
+
+        self.discrete_actions = np.linspace(-0.9, 0.9, self.num_disc_act)
+
+
+
+        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["a2c-caus", "discrete"])
 
         # Enable GPU if available
 
-        if enable_gpu and torch.cuda.is_available():
+        if self.enable_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             print("Running on GPU")
         else:
@@ -119,7 +119,7 @@ class Agent:
 
         # Configure predictors
 
-        if extended_obs:
+        if self.extended_observation:
 
             print('This model does not support extended observations yet')
 
@@ -131,8 +131,8 @@ class Agent:
 
         # Configure neural networks
 
-        self.actor = Actor(state_size=num_inputs, num_actions=len(self.discrete_actions), hidden_size=actor_nn).to(self.device)
-        self.actor.optimizer = Adam(params=self.actor.parameters(), lr=actor_lr)
+        self.actor = Actor(state_size=num_inputs, num_actions=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
+        self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
 
         # Check if we are resuming training from a previous checkpoint
 
@@ -149,11 +149,11 @@ class Agent:
 
         self.wdb_logger.watch_model(models=(self.actor))
 
-    def setup_wandb_logger(self, config: dict, tags: list, disabled: bool = False):
+    def setup_wandb_logger(self, config: dict, tags: list):
         
         wdb_logger = WandbLogger(tags=tags)
 
-        wdb_logger.disable_logging(disable=disabled)
+        wdb_logger.disable_logging(self.disable_logging)
 
         wdb_logger.init(config=config)
 
@@ -190,7 +190,7 @@ class Agent:
 
         state, reward, done, _ = self.env.reset()
 
-        if self.extended_obs:
+        if self.extended_observation:
 
             state = self.get_extended_observations(state)
 
@@ -207,7 +207,7 @@ class Agent:
 
             state, reward, done, _ = self.env.step(actions)
 
-            if self.extended_obs:
+            if self.extended_observation:
 
                 state = self.get_extended_observations(state)
 
@@ -220,11 +220,11 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
-    def train(self, training_steps: int = 1000, min_loss: float = 0.01):
+    def train(self):
 
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
 
-        for step in tqdm(range(self.current_step, training_steps)):
+        for step in tqdm(range(self.current_step, self.training_steps)):
 
             # Perform rollouts and sample trajectories
 
@@ -262,7 +262,7 @@ class Agent:
 
             # Check stop condition
 
-            stop_condition = actor_loss.abs().item() <= min_loss
+            stop_condition = actor_loss.abs().item() <= self.min_loss
 
             if step % 50 == 0 or stop_condition:
 
@@ -310,97 +310,12 @@ class Agent:
 """
 
 if __name__ == '__main__':
-    config = load_config("d_pg.yaml")
+    config = load_config("d_pg")
     config = config['train']
-    # Read arguments from command line
-
-    parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
-
-    args = parser.parse_args([])
-
-    parser.add_argument("-y", "--yaml", default=True, help="Load params from yaml file")
-    parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
-    parser.add_argument("-bs", "--batch_size", default=1, type=int, help="Batch size")
-    parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
-    parser.add_argument("-rs", "--rollout_steps", default=8759, type=int, help="Steps for the rollout loop")
-    parser.add_argument("-alr", "--actor_lr", default=1e-3, type=float, help="Actor learning rate")
-    parser.add_argument("-ann", "--actor_nn", default=256, type=int, help="Actor hidden layer number of neurons")
-    parser.add_argument("-cnn", "--critic_nn", default=256, type=int, help="Critic hidden layer number of neurons")
-    parser.add_argument("-nda", "--num_disc_act", default=40, type=int, help="Number of Discrete Actions")
-    parser.add_argument("-g", "--gamma", default=0.95, type=float, help="Critic hidden layer number of neurons")
-    parser.add_argument("-gpu", "--enable_gpu", default=False, action="store_true", help="Device to use for training")
-    parser.add_argument("-ca", "--central_agent", default=False, action="store_true", help="Central agent")
-    parser.add_argument("-rss", "--random_soc_0", default=False, action="store_true", help="Random starting soc")
-    parser.add_argument("-dn", "--disable_noise", default=False, action="store_true", help="Disable noise from data generation")
-    parser.add_argument("-e", "--encoding", default=False, action="store_true", help="Enable encoding")
-    parser.add_argument("-xobs", "--extended_observation", default=False, action="store_true", help="Extended observation")
-
-    args = parser.parse_args()
-
-    # Get arguments from command line
-
-    use_yaml = args.yaml
-    
-    if use_yaml:
-
-        print('Use yaml')
-
-        disable_logging = config['disable_logging']
-        batch_size = config['batch_size']
-        training_steps = config['training_steps']
-        rollout_steps = config['rollout_steps']
-        actor_lr = config['actor_lr']
-        actor_nn = config['actor_nn']
-        gamma = config['gamma']
-        enable_gpu = config['enable_gpu']
-        central_agent = config['central_agent']
-        random_soc_0 = config['random_soc_0']
-        encoding = config['encoding']
-        extended_observation = config['extended_observation']
-        disable_noise = config['disable_noise']
-        num_disc_act = config['num_disc_act']
-
-    else:
-
-        print('Use params')
-
-        disable_logging = args.disable_logging
-        batch_size = args.batch_size
-        training_steps = args.training_steps
-        rollout_steps = args.rollout_steps
-        actor_lr = args.actor_lr
-        actor_nn = args.actor_nn
-        gamma = args.gamma
-        enable_gpu = args.enable_gpu
-        central_agent = args.central_agent
-        random_soc_0 = args.random_soc_0
-        encoding = args.encoding
-        extended_observation = args.extended_observation
-        disable_noise = args.disable_noise
-        num_disc_act = args.num_disc_act
     
     # Start wandb logger
 
     try:
-
-        '''
-            Setup all the configurations for Wandb
-        '''
-
-        wdb_config={
-            "training_steps": training_steps,
-            "batch_size": batch_size,
-            "rollout_steps": rollout_steps,
-            "agent_actor_lr": actor_lr,
-            "agent_actor_nn": actor_nn,
-            "gamma": gamma,
-            "central_agent": central_agent,
-            "random_soc_0": random_soc_0,
-            "encoding": encoding,
-            "extended_observation": extended_observation,
-            "num_disc_act": num_disc_act,
-        }
-
         '''
             Run the simulator
         '''
@@ -409,21 +324,17 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = MGSimple(
-            batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_grid_gen = 1, peak_load = 1,
-            random_soc_0=random_soc_0, disable_noise=disable_noise, encoding=encoding
-        )
+        my_env = MGSimple(config=config['env'])
 
         # Instantiate the agent
 
         agent = Agent(
-            env=my_env, actor_lr=actor_lr, actor_nn=actor_nn, batch_size=batch_size, gamma=gamma,
-            extended_obs=extended_observation, wandb_dict=wdb_config, enable_gpu=enable_gpu, disable_wandb=disable_logging,num_disc_act=num_disc_act
+            env=my_env, config = config
         )
 
         # Launch the training
 
-        agent.train(training_steps=training_steps)
+        agent.train()
 
         # Finish wandb process
 

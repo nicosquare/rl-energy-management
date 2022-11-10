@@ -1,19 +1,27 @@
-# Configuration params for discrite A2C
+# Configuration params for continuous A2C
 train:
-  batch_size: 32
-  training_steps: 500
-  rollout_steps: 24
-  num_disc_act: 12
-  actor_lr: 0.00008
-  critic_lr: 0.0001
-  actor_nn: 256
-  critic_nn: 256
-  gamma: 0.90
-  random_soc_0: False
-  disable_noise: True
-  disable_logging: False
-  enable_gpu: True
-  central_agent: False
-  encoding: True
-  extended_observation: False 
+  agent:
+    actor_lr: 0.00008
+    critic_lr: 0.0001
+    actor_nn: 256
+    critic_nn: 256
+    gamma: 0.90
+    disable_logging: False
+    enable_gpu: True
+    extended_observation: False 
+  env:
+    batch_size: 32
+    rollout_steps: 24
+    training_steps: 500
+    central_agent: False
+    random_soc_0: False
+    disable_noise: True
+    encoding: True
+    peak_pv_gen: 1
+    peak_grid_gen: 1
+    peak_load: 1
+    grid_sell_rate: 0.25
+    min_temp: 29
+    max_temp: 31
+    profile: Family
 # reward?

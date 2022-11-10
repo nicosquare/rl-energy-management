@@ -9,8 +9,7 @@ from src.components.microgrid_simple import SimpleMicrogrid
 class MGSimple(Env):
 
     def __init__(
-        self, batch_size: int = 1, steps: int = 8760, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
-        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False, encoding: bool = True
+        self, config
     ):
         
         """
@@ -24,9 +23,9 @@ class MGSimple(Env):
             1 soc: [0,1]
         
         """
+        # Get params from yaml config file
+        self.encoding = config['encoding']
 
-        self.batch_size = batch_size
-        self.encoding = encoding
 
         low_limit_obs = np.float32(np.array([0.0, 0.0]))
         high_limit_obs = np.float32(np.array([23.0, 1.0]))
@@ -64,9 +63,7 @@ class MGSimple(Env):
             dtype=np.float32
         )
 
-        self.mg = SimpleMicrogrid(
-            batch_size=batch_size, steps=steps, min_temp=min_temp, max_temp=max_temp, peak_pv_gen=peak_pv_gen, peak_grid_gen=peak_grid_gen, peak_load=peak_load,
-            grid_sell_rate= grid_sell_rate, disable_noise=disable_noise, random_soc_0=random_soc_0
+        self.mg = SimpleMicrogrid( config
         )
 
     def observe(self):
@@ -83,7 +80,7 @@ class MGSimple(Env):
 
     def reset(self):
         self.mg.reset()
-        return self.observe(), np.zeros((self.batch_size, 1)), False, {}
+        return self.observe(), np.zeros((self.mg.batch_size, 1)), False, {}
 
     def render(self, mode="human"):
         print('Rendering not defined yet')
