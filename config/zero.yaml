@@ -1,17 +1,13 @@
-# Configuration params for discrete Policy Gradients
+# Configuration params for Random and Zero agents 
 train:
   agent:
-    num_disc_act: 12
-    actor_lr: 0.00008
-    actor_nn: 256
-    gamma: 0.90
     disable_logging: False
     enable_gpu: True
     extended_observation: False 
   env:
-    batch_size: 32
+    batch_size: 1
     rollout_steps: 24
-    training_steps: 500
+    training_steps: 2
     central_agent: False
     random_soc_0: False
     disable_noise: True

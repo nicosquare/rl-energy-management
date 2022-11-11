@@ -8,16 +8,28 @@ from src.components.battery import Battery, BatteryParameters
 class SimpleMicrogrid():
     
     def __init__(
-        self, batch_size: int = 1, steps: int = 24, min_temp: float = 29, max_temp: float = 31, peak_pv_gen: int = 1, peak_grid_gen: float = 1, peak_load: float = 1,
-        grid_sell_rate: float = 0.25, disable_noise: bool = False, random_soc_0: bool = False
+        self, config
     ):
         
-        self.steps = steps
-        self.peak_pv_gen = peak_pv_gen
-        self.peak_grid_gen = peak_grid_gen
-        self.peak_load = peak_load
-        self.batch_size = batch_size
-        self.grid_sell_rate = grid_sell_rate
+        self.batch_size = config['batch_size']
+        self.steps = config['rollout_steps']
+        self.peak_pv_gen = config['peak_pv_gen']
+        self.peak_grid_gen = config['peak_grid_gen']
+        self.peak_load = config['peak_load']
+        self.grid_sell_rate = config['grid_sell_rate']
+        self.disable_noise = config['disable_noise']
+        self.profile = config['profile']
+
+        # Time variables
+
+        self.time = np.arange(self.steps)
+        self.current_step = 0
+
+        # Environmental variables
+
+        self.min_temp = config['min_temp']
+        self.max_temp = config['max_temp']
+        self.temp = np.random.uniform(self.min_temp, self.max_temp, self.steps)
 
         # Microgrid data
 
@@ -28,22 +40,10 @@ class SimpleMicrogrid():
         self.net_energy = None
         self.price = None
         self.emission = None
-        self.disable_noise = disable_noise
-
-        # Time variables
-
-        self.time = np.arange(steps)
-        self.current_step = 0
-
-        # Environmental variables
-
-        self.min_temp = min_temp
-        self.max_temp = max_temp
-        self.temp = np.random.uniform(min_temp, max_temp, steps)
 
         # Components
-
-        self.battery = Battery(batch_size = batch_size, random_soc_0=random_soc_0, params = BatteryParameters(
+        self.random_soc_0 = config['random_soc_0']
+        self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(
             soc_0=0.1,
             soc_max=0.9,
             soc_min=0.1,
@@ -57,17 +57,17 @@ class SimpleMicrogrid():
 
         # Generate data
 
-        self.generate_data(disable_noise=disable_noise)
+        self.generate_data()
         
 
-    def generate_data(self, plot: bool = False, disable_noise: bool = False):
+    def generate_data(self, plot: bool = False):
 
         min_noise_pv = 0
         max_noise_pv = 0.1
         min_noise_demand = 0
         max_noise_demand = 0.01
 
-        if disable_noise:
+        if self.disable_noise:
     
             max_noise_pv = 0
             max_noise_demand = 0
@@ -75,8 +75,8 @@ class SimpleMicrogrid():
         # Generate data
 
         pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
-        base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
-        # base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        # base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
         # base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
         nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
@@ -275,5 +275,5 @@ class SimpleMicrogrid():
             None
         """
         self.current_step = 0
-        self.generate_data(disable_noise=self.disable_noise)
+        self.generate_data()
         self.battery.reset()
