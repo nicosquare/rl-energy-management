@@ -1,19 +1,19 @@
 # Configuration params for discrete A2C
 train:
   agent:
-    num_disc_act: 12
-    actor_lr: 0.00008
+    num_disc_act: 20
+    actor_lr: 0.0005
     critic_lr: 0.0001
-    actor_nn: 256
-    critic_nn: 256
-    gamma: 0.90
-    disable_logging: False
+    actor_nn: 128
+    critic_nn: 128
+    gamma: 1
+    disable_logging: True
     enable_gpu: True
     extended_observation: False 
   env:
     batch_size: 32
     rollout_steps: 24
-    training_steps: 500
+    training_steps: 700
     central_agent: False
     random_soc_0: False
     disable_noise: True
@@ -25,4 +25,5 @@ train:
     min_temp: 29
     max_temp: 31
     profile: Family
+    solar: True
 # reward?
