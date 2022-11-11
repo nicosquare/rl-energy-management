@@ -140,10 +140,10 @@ models/*
 
 logs/*
 
+imgs/*
+
 src/.DS_Store
 
-cscc*.sh
+*cpu*.sh
 
-cpu.sh
-
-gpu.sh
+*gpu*.sh
