@@ -254,8 +254,6 @@ class Agent:
                 actor_loss.backward()
                 self.actor.optimizer.step()
 
-                # Backpropagation to train Critic NN
-
             except Exception as e:
 
                 traceback.print_exc()

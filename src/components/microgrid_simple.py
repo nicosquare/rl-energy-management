@@ -196,7 +196,7 @@ class SimpleMicrogrid():
             1, 1, 1, 0.83, 0.41, 0, 0, 0, 0, 0, 0, 0, 0, 0.25, 0.41, 0.41, 0.41, 0.41, 0.41, 0.83, 1, 1, 1, 1
         ])
 
-        return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
+        return self.demand_from_day_profile(day_profile, base_power_rate=0.3, min_noise=min_noise, max_noise=max_noise)
 
     def demand_home_business(self, min_noise: float = 0, max_noise: float = 0.06):
             
