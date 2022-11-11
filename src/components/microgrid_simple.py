@@ -19,6 +19,7 @@ class SimpleMicrogrid():
         self.grid_sell_rate = config['grid_sell_rate']
         self.disable_noise = config['disable_noise']
         self.profile = config['profile']
+        self.solar = config['solar']
 
         # Time variables
 
@@ -73,15 +74,29 @@ class SimpleMicrogrid():
             max_noise_demand = 0
 
         # Generate data
+            # Solar Generation
+        if self.solar:
+            pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
+        else:
+            pv_base = np.zeros(self.steps)
+            self.pv_gen = np.zeros(self.steps)
 
-        pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
-        # base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
-        base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
-        # base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
+            # Demand Profile
+        if self.profile == 'Family':
+            base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        elif self.profile == 'Business':
+            base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        elif self.profile == 'Teenagers':
+            base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        else:
+            base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+        
+            # Grid electric production
         nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
         )
 
+            # Net energy without battery
         self.remaining_energy = self.demand - self.pv_gen
 
         # Net energy starts with remaining energy value as not action has been taken yet

@@ -25,4 +25,5 @@ train:
     min_temp: 29
     max_temp: 31
     profile: Family
+    solar: True
 # reward?
