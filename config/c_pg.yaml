@@ -1,19 +1,16 @@
-# Configuration params for discrete A2C
+# Configuration params for continuous Policy Gradients
 train:
   agent:
-    num_disc_act: 40
-    actor_lr: 0.05245
-    critic_lr: 0.001
-    actor_nn: 128
-    critic_nn: 128
-    gamma: 1.0
-    disable_logging: True
+    actor_lr: 0.00008
+    actor_nn: 256
+    gamma: 0.90
+    disable_logging: False
     enable_gpu: True
     extended_observation: False 
   env:
     batch_size: 32
     rollout_steps: 24
-    training_steps: 700
+    training_steps: 500
     central_agent: False
     random_soc_0: False
     disable_noise: True
@@ -25,4 +22,5 @@ train:
     min_temp: 29
     max_temp: 31
     profile: Family
+    solar: True
 # reward?

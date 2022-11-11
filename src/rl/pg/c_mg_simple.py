@@ -82,25 +82,60 @@ class Actor(Module):
 class Agent:
 
     def __init__(
-        self, env: Env, actor_nn: int = 64, actor_lr: float = 1e-4, gamma: float = 0.9,
-        batch_size: int = 1, resumed: bool = False, extended_obs: bool = False, disable_wandb: bool = False, wandb_dict: dict = None,
-        enable_gpu: bool = False
+        self, config, env: Env,  resumed: bool = False 
     ):
 
-        # Parameter initialization
-
+        # Get env and its params
         self.env = env
-        self.batch_size = batch_size
+        self.batch_size = config['env']['batch_size']
+        self.rollout_steps = config['env']['rollout_steps']
+        self.training_steps = config['env']['training_steps']
+        self.encoding = config['env']['encoding']
+        self.random_soc_0 = config['env']['random_soc_0']
+        self.central_agent = config['env']['central_agent']
+        self.disable_noise = config['env']['disable_noise']
+        
+        config = config['agent']
+        # Get params from yaml config file
+        self.num_disc_act = config['num_disc_act']
+        self.actor_lr = config['actor_lr']
+        self.actor_nn = config['actor_nn']
+        self.gamma = config['gamma']
+        self.disable_logging = config['disable_logging']
+        self.enable_gpu = config['enable_gpu']
+        self.extended_observation = config['extended_observation']
+        # self.early_stop = config['early_stop'] #TODO review this name and min loss
+        self.min_loss = 0.01
+
+        # Other params 
         self.resumed = resumed
         self.current_step = 0
-        self.gamma = gamma
-        self.extended_obs = extended_obs
 
-        self.wdb_logger = self.setup_wandb_logger(config=wandb_dict, tags=["a2c-caus", "continuous"], disabled=disable_wandb)
+        '''
+            Setup all the configurations for Wandb
+        '''
+
+        #TODO review all params are uploaded
+        wdb_config={
+            "training_steps": self.training_steps,
+            "batch_size": self.batch_size,
+            "rollout_steps": self.rollout_steps,
+            "agent_actor_lr": self.actor_lr,
+            "agent_actor_nn": self.actor_nn,
+            "gamma": self.gamma,
+            "central_agent": self.central_agent,
+            "random_soc_0": self.random_soc_0,
+            "encoding": self.encoding,
+            "extended_observation": self.extended_observation,
+            "num_disc_act": self.num_disc_act,
+            "disable_noise": self.disable_noise
+        }
+
+        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["pg", "continuous"])
 
         # Enable GPU if available
 
-        if enable_gpu and torch.cuda.is_available():
+        if self.enable_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             print("Running on GPU")
         else:
@@ -109,7 +144,7 @@ class Agent:
 
         # Configure predictors
 
-        if extended_obs:
+        if self.extended_observation:
 
             print('This model does not support extended observations yet')
 
@@ -123,9 +158,9 @@ class Agent:
 
         # Configure neural networks
 
-        self.actor = Actor(state_size=num_inputs, num_actions=num_actions, hidden_size=actor_nn).to(self.device)
+        self.actor = Actor(state_size=num_inputs, num_actions=num_actions, hidden_size=self.actor_nn).to(self.device)
 
-        self.actor.optimizer = Adam(params=self.actor.parameters(), lr=actor_lr)
+        self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
 
         # Check if we are resuming training from a previous checkpoint
 
@@ -142,11 +177,11 @@ class Agent:
 
         self.wdb_logger.watch_model(models=(self.actor, self.critic))
 
-    def setup_wandb_logger(self, config: dict, tags: list, disabled: bool = False):
+    def setup_wandb_logger(self, config: dict, tags: list):
         
         wdb_logger = WandbLogger(tags=tags)
 
-        wdb_logger.disable_logging(disable=disabled)
+        wdb_logger.disable_logging(disable=self.disable_logging)
 
         wdb_logger.init(config=config)
 
@@ -219,11 +254,11 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
-    def train(self, training_steps: int = 1000, min_loss: float = 0.01):
+    def train(self):
 
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
 
-        for step in tqdm(range(self.current_step, training_steps)):
+        for step in tqdm(range(self.current_step, self.training_steps)):
 
             # Perform rollouts and sample trajectories
 
@@ -259,7 +294,7 @@ class Agent:
 
             # Check stop condition
 
-            stop_condition = actor_loss.abs().item() <= min_loss
+            stop_condition = actor_loss.abs().item() <= self.min_loss
 
             if step % 5 == 0 or stop_condition:
 
@@ -297,7 +332,7 @@ class Agent:
             'current_step': current_step,
             'actor_state_dict': actor_state_dict,
             'actor_opt_state_dict': actor_opt_state_dict,
-        }, f'{model_path}/c_a2c_c_model.pt')
+        }, f'{model_path}/c_pg_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -308,92 +343,12 @@ class Agent:
 
 if __name__ == '__main__':
 
-    config = load_config("c_a2c.yaml")
+    config = load_config("c_pg")
     config = config['train']
-
-    # Read arguments from command line
-
-    parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
-
-    args = parser.parse_args([])
-
-    parser.add_argument("-y", "--yaml", default=True, help="Load params from yaml file")
-    parser.add_argument("-dl", "--disable_logging", default=False, action="store_true", help="Disable logging")
-    parser.add_argument("-bs", "--batch_size", default=1, type=int, help="Batch size")
-    parser.add_argument("-ts", "--training_steps", default=500, type=int, help="Steps for training loop")
-    parser.add_argument("-rs", "--rollout_steps", default=8759, type=int, help="Steps for the rollout loop")
-    parser.add_argument("-alr", "--actor_lr", default=1e-3, type=float, help="Actor learning rate")
-    parser.add_argument("-ann", "--actor_nn", default=256, type=int, help="Actor hidden layer number of neurons")
-    parser.add_argument("-g", "--gamma", default=0.95, type=float, help="Critic hidden layer number of neurons")
-    parser.add_argument("-gpu", "--enable_gpu", default=False, action="store_true", help="Device to use for training")
-    parser.add_argument("-ca", "--central_agent", default=False, action="store_true", help="Central agent")
-    parser.add_argument("-rss", "--random_soc_0", default=False, action="store_true", help="Random starting soc")
-    parser.add_argument("-dn", "--disable_noise", default=False, action="store_true", help="Disable noise from data generation")
-    parser.add_argument("-e", "--encoding", default=False, action="store_true", help="Enable encoding")
-    parser.add_argument("-xobs", "--extended_observation", default=False, action="store_true", help="Extended observation")
-
-    args = parser.parse_args()
-
-    # Get arguments from command line
-
-    use_yaml = args.yaml
-    
-    if use_yaml:
-
-        print('Run yaml')
-
-        disable_logging = config['disable_logging']
-        batch_size = config['batch_size']
-        training_steps = config['training_steps']
-        rollout_steps = config['rollout_steps']
-        actor_lr = config['actor_lr']
-        actor_nn = config['actor_nn']
-        gamma = config['gamma']
-        enable_gpu = config['enable_gpu']
-        central_agent = config['central_agent']
-        random_soc_0 = config['random_soc_0']
-        encoding = config['encoding']
-        extended_observation = config['extended_observation']
-        disable_noise = config['disable_noise']
-        num_disc_act = config['num_disc_act']
-
-    else:
-        
-        print('Use params')
-
-        disable_logging = args.disable_logging
-        batch_size = args.batch_size
-        training_steps = args.training_steps
-        rollout_steps = args.rollout_steps
-        actor_lr = args.actor_lr
-        actor_nn = args.actor_nn
-        gamma = args.gamma
-        enable_gpu = args.enable_gpu
-        central_agent = args.central_agent
-        random_starting_step = args.random_soc_0
-        encoding = args.encoding
-        extended_observation = args.extended_observation
 
     # Start wandb logger
 
     try:
-
-        '''
-            Setup all the configurations for Wandb
-        '''
-
-        wdb_config={
-            "training_steps": training_steps,
-            "batch_size": batch_size,
-            "rollout_steps": rollout_steps,
-            "agent_actor_lr": actor_lr,
-            "agent_actor_nn": actor_nn,
-            "gamma": gamma,
-            "central_agent": central_agent,
-            "random_starting_step": random_starting_step,
-            "encoding": encoding,
-            "extended_observation": extended_observation,
-        }
 
         '''
             Run the simulator
@@ -403,18 +358,17 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = MGSimple(batch_size=batch_size, steps = rollout_steps, min_temp = 29, max_temp = 31, peak_pv_gen = 1, peak_grid_gen = 1, peak_load = 1)
+        my_env = MGSimple(config=config['env'])
 
         # Instantiate the agent
 
         agent = Agent(
-            env=my_env, actor_lr=actor_lr, actor_nn=actor_nn, batch_size=batch_size, gamma=gamma,
-            extended_obs=extended_observation, wandb_dict=wdb_config, enable_gpu=enable_gpu, disable_wandb=disable_logging,
+            env=my_env, config = config
         )
 
         # Launch the training
 
-        agent.train(training_steps=training_steps)
+        agent.train()
 
         # Finish Wandb execution
 

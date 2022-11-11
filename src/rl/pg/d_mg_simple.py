@@ -104,9 +104,7 @@ class Agent:
 
         self.discrete_actions = np.linspace(-0.9, 0.9, self.num_disc_act)
 
-
-
-        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["a2c-caus", "discrete"])
+        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["pg", "discrete"])
 
         # Enable GPU if available
 
@@ -308,6 +306,7 @@ class Agent:
 """
 
 if __name__ == '__main__':
+
     config = load_config("d_pg")
     config = config['train']
     
