@@ -5,7 +5,7 @@ train:
     actor_lr: 0.00008
     actor_nn: 256
     gamma: 0.90
-    disable_logging: False
+    disable_logging: True
     enable_gpu: True
     extended_observation: False 
   env:
