@@ -2,6 +2,7 @@
 
 #  Multi-Agent Hierarchical Transactive Grid - mbzuai-rl-research
 <h3 align="center"> ML702 - Advanced Machine Learning </h3>
+</div>
   
 
 ## Description
@@ -9,7 +10,7 @@ We present a multi-agent model trained using Reinforcement
 Learning to accomplish the goal of defining the prices and dynamics that allow to sell or buy electricity between neighbohrs in a finely controlled manner.
 
 ## Research proposal
-</div>
+
 <p align="center">
    <img src="readme/BCTE_diagram.png">
 </p>
