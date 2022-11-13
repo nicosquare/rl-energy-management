@@ -112,7 +112,7 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
     fig.tight_layout()
 
     if save:
-        plt.savefig(filename)
+        plt.savefig(filename, dpi=300)
 
     plt.grid()
     plt.show()
