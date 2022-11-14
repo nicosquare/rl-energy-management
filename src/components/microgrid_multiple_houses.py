@@ -1,11 +1,10 @@
-from typing import Union
 import numpy as np
-
+from typing import Union
 from matplotlib import pyplot as plt
 
 from src.components.battery import Battery, BatteryParameters
 
-class SimpleMicrogrid():
+class MultipleHouseMicrogrid():
     
     def __init__(
         self, config
@@ -18,8 +17,7 @@ class SimpleMicrogrid():
         self.peak_load = config['peak_load']
         self.grid_sell_rate = config['grid_sell_rate']
         self.disable_noise = config['disable_noise']
-        self.profile = config['profile']
-        self.solar = config['solar']
+
 
         # Time variables
 
@@ -42,24 +40,38 @@ class SimpleMicrogrid():
         self.price = None
         self.emission = None
 
-        # Components
-        self.random_soc_0 = config['random_soc_0']
-        self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(
-            soc_0=0.1,
-            soc_max=0.9,
-            soc_min=0.1,
-            p_charge_max=0.8,
-            p_discharge_max=0.8,
-            efficiency=0.9,
-            capacity=1,
-            sell_price=0.0,
-            buy_price=0.0
-        ))
+        # Houses
+        self.houses = house_loader(config["houses"])
 
         # Generate data
-
         self.generate_data()
-        
+
+    def house_loader(self, config):
+        for house_id, attr in zip(config, config.values()):
+
+            # Check Components
+            if "pv" in attr:
+                print(attr)
+
+            if "battery" in attr:
+                print("")
+        # # Components
+        # self.random_soc_0 = config['random_soc_0']
+        # self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(
+        #     soc_0=0.1,
+        #     soc_max=0.9,
+        #     soc_min=0.1,
+        #     p_charge_max=0.8,
+        #     p_discharge_max=0.8,
+        #     efficiency=0.9,
+        #     capacity=1,
+        #     sell_price=0.0,
+        #     buy_price=0.0
+        # ))
+
+
+            # self.profile = config['profile']
+        # self.solar = config['solar']
 
     def generate_data(self, plot: bool = False):
 

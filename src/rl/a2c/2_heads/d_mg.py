@@ -32,41 +32,40 @@ ZERO = 1e-5
     Agent definitions
 '''
 
-class Actor(Module):
 
-    def __init__(self, state_size, num_actions, hidden_size=64):
-        super(Actor, self).__init__()
+class TwoInputsActor(Module):
+    def __init__(self, obs_dim, attr_dim, act_dim, hidden=64) -> None:
+        super(TwoInputsActor, self).__init__()
+        self.obs_input = Linear(obs_dim, hidden)
+        self.obs_fc = Linear(hidden, hidden*2)
+        self.attr_input = Linear(attr_dim, hidden)
+        self.attr_fc = Linear(hidden, hidden*2)
+        self.concat_fc = Linear(hidden*4, hidden*2)
+        self.output = Linear(hidden*2, act_dim)
 
-        # Define the independent inputs
+    def forward(self, obs, attr):
+        ob = F.selu(self.obs_input(obs))
+        ob = F.selu(self.obs_fc(ob))
+        att = F.selu(self.attr_input(attr))
+        att = F.selu(self.attr_fc(att))
+        x = torch.cat([att, ob], dim=0)
+        x = F.selu(self.concat_fc(x))
+        x = F.softmax(self.output(x), dim=0)
 
-        self.input = Linear(state_size, hidden_size)
-        self.output = Linear(hidden_size, num_actions)
+        return x
 
-    def forward(self, state: Tensor) -> Tensor:
-
-        state = F.relu(self.input(state))
-
-        output = F.softmax(self.output(state), dim=1)
-
-        return output
-
-class Critic(Module):
-
-    def __init__(self, state_size, hidden_size=64):
-        super(Critic, self).__init__()
-
-        # Define the independent inputs
-
-        self.input = Linear(state_size, hidden_size)
-        self.output = Linear(hidden_size, 1)
-
-    def forward(self, state: Tensor) -> Tensor:
-
-        state = F.leaky_relu(self.input(state))
-
-        output = self.output(state)
-
-        return output
+class TwoInputsCritic(Module):
+    def __init__(self, obs_dim,attr_dim, hidden=64) -> None:
+        super(TwoInputsCritic, self).__init__()
+        self.fc1 = Linear(obs_dim, hidden)
+        self.fc2 = Linear(attr_dim, hidden)
+        self.fc3 = Linear(hidden*2, 1)
+    def forward(self, obs, attr):
+        ob = F.selu(self.fc1(obs))
+        att = F.selu(self.fc2(attr))
+        x = torch.cat([att, ob], dim=0)
+        x = self.fc3(x)
+        return x
 
 class Agent:
 
@@ -143,16 +142,18 @@ class Agent:
 
             print('This model does not support extended observations yet')
 
-            num_inputs = env.obs_size
+            obs_dim = env.obs_size
 
         else:
 
-            num_inputs = env.obs_size
+            obs_dim = env.obs_size
+
+        # attr_dim =
 
         # Configure neural networks
 
-        self.actor = Actor(state_size=num_inputs, num_actions=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
-        self.critic = Critic(state_size=num_inputs, hidden_size=self.critic_nn).to(self.device)
+        self.actor = TwoInputsActor(obs_dim=obs_dim, attr_dim=attr_dim ,act_dim=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
+        self.critic = TwoInputsCritic(obs_dim=obs_dim,attr_dim=attr_dim, hidden_size=self.critic_nn).to(self.device)
 
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
         self.critic.optimizer = Adam(params=self.critic.parameters(), lr=self.critic_lr)
@@ -349,7 +350,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/d_a2c_c_model.pt')
+        }, f'{model_path}/2h_d_a2c"_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -359,8 +360,9 @@ class Agent:
 """
 
 if __name__ == '__main__':
+    model = "2h_d_a2c"
 
-    config = load_config("d_a2c")
+    config = load_config(model)
     config = config['train']
     
     # Start wandb logger
