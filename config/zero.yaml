@@ -1,7 +1,7 @@
 # Configuration params for Random and Zero agents 
 train:
   agent:
-    disable_logging: False
+    disable_logging: True
     enable_gpu: True
     extended_observation: False 
   env:

@@ -6,7 +6,7 @@ train:
     actor_nn: 256
     critic_nn: 256
     gamma: 0.90
-    disable_logging: False
+    disable_logging: True
     enable_gpu: True
     extended_observation: False 
   env:
