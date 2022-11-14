@@ -4,9 +4,9 @@ from gym import Env
 from gym.spaces import Box
 
 from src.utils.preprocessing import OneHotEncoding, NoNormalization
-from src.components.microgrid_simple import SimpleMicrogrid
+from src.components.synthetic_house import SyntheticHouse
 
-class MGSimple(Env):
+class SimpleHouse(Env):
 
     def __init__(
         self, config
@@ -63,8 +63,7 @@ class MGSimple(Env):
             dtype=np.float32
         )
 
-        self.mg = SimpleMicrogrid( config
-        )
+        self.mg = SyntheticHouse(config=config)
 
     def observe(self):
         return self.normalize_obs(self.mg.observe())

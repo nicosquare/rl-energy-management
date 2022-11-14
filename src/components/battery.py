@@ -24,8 +24,7 @@ class BatteryParameters(TypedDict):
         sell_price: float
             Price for injecting energy to the battery (reward to the prosumers).
     """
-    soc_0: float
-    capacity: int
+    capacity: float
     soc_max: float
     soc_min: float
     p_charge_max: float
@@ -50,8 +49,7 @@ class Battery:
                 Dict of configurations with the following shape:
 
                 {
-                    soc_0: float,
-                    capacity: int,
+                    capacity: float,
                     soc_max: float,
                     soc_min: float,
                     p_charge_max: float,
@@ -67,7 +65,6 @@ class Battery:
 
         if params is None:
             params = {
-                'soc_0': 0.1,
                 'capacity': 1.0,
                 'soc_max': 0.9,
                 'soc_min': 0.1,
@@ -81,7 +78,6 @@ class Battery:
         # Initialize the class attributes
 
         self.batch_size = batch_size
-        self.soc_0 = params['soc_0']
         self.capacity = params['capacity']
         self.soc_max = params['soc_max']
         self.soc_min = params['soc_min']

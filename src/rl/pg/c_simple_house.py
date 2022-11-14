@@ -6,71 +6,83 @@
 
 """
 
+from os import path
 import traceback
 import numpy as np
+import yaml
 import torch
+import argparse
 from tqdm import tqdm
 
 from gym import Env
-from torch import Tensor, tensor
+from torch import Tensor, tensor, tanh
 from torch.nn import Module, Linear, MSELoss
 from torch.functional import F
 from torch.optim import Adam
-from torch.distributions import Categorical
+from torch.distributions import Normal
 
 from src.utils.wandb_logger import WandbLogger
-from src.environments.mg_simple import MGSimple
+from src.environments.simple_house import SimpleHouse
 
-from src.utils.tools import set_all_seeds, load_config
 torch.autograd.set_detect_anomaly(True)
+
 
 # Define global variables
 
+CONFIG_PATH = "config/"
 ZERO = 1e-5
+
+# Define global variables
+
+zero = 1e-5
 
 '''
     Agent definitions
 '''
 
+def set_all_seeds(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
 
-class TwoInputsActor(Module):
-    def __init__(self, obs_dim, attr_dim, act_dim, hidden=64) -> None:
-        super(TwoInputsActor, self).__init__()
-        self.obs_input = Linear(obs_dim, hidden)
-        self.obs_fc = Linear(hidden, hidden*2)
-        self.attr_input = Linear(attr_dim, hidden)
-        self.attr_fc = Linear(hidden, hidden*2)
-        self.concat_fc = Linear(hidden*4, hidden*2)
-        self.output = Linear(hidden*2, act_dim)
+# Function to load yaml configuration 
 
-    def forward(self, obs, attr):
-        ob = F.selu(self.obs_input(obs))
-        ob = F.selu(self.obs_fc(ob))
-        att = F.selu(self.attr_input(attr))
-        att = F.selu(self.attr_fc(att))
-        x = torch.cat([att, ob], dim=0)
-        x = F.selu(self.concat_fc(x))
-        x = F.softmax(self.output(x), dim=0)
+def load_config(config_name):
+    
+    with open(path.join(CONFIG_PATH, config_name)) as file:
+        config = yaml.safe_load(file)
+    return config
 
-        return x
+class Actor(Module):
 
-class TwoInputsCritic(Module):
-    def __init__(self, obs_dim,attr_dim, hidden=64) -> None:
-        super(TwoInputsCritic, self).__init__()
-        self.fc1 = Linear(obs_dim, hidden)
-        self.fc2 = Linear(attr_dim, hidden)
-        self.fc3 = Linear(hidden*2, 1)
-    def forward(self, obs, attr):
-        ob = F.selu(self.fc1(obs))
-        att = F.selu(self.fc2(attr))
-        x = torch.cat([att, ob], dim=0)
-        x = self.fc3(x)
-        return x
+    def __init__(self, state_size, num_actions, hidden_size=64):
+        super(Actor, self).__init__()
+
+        # Define the independent inputs
+
+        self.input = Linear(state_size, hidden_size)
+        self.output = Linear(hidden_size, num_actions * 2) # For each continuous action, a mu and a sigma
+
+    def forward(self, state: Tensor) -> Tensor:
+
+        state = F.relu(self.input(state))
+
+        normal_params = self.output(state)
+
+        mu = normal_params[:, 0]
+        sigma = normal_params[:, 1]
+
+        # Guarantee that the standard deviation is not negative
+
+        sigma = torch.exp(sigma) + zero
+
+        return mu, sigma
 
 class Agent:
 
     def __init__(
-        self,config, env: Env,  resumed: bool = False 
+        self, config, env: Env,  resumed: bool = False 
     ):
 
         # Get env and its params
@@ -79,7 +91,7 @@ class Agent:
         self.rollout_steps = config['env']['rollout_steps']
         self.training_steps = config['env']['training_steps']
         self.encoding = config['env']['encoding']
-        self.random_soc_0 = config['env']['random_soc_0']
+        self.random_soc_0 = config['env']['battery']['random_soc_0']
         self.central_agent = config['env']['central_agent']
         self.disable_noise = config['env']['disable_noise']
         
@@ -87,9 +99,7 @@ class Agent:
         # Get params from yaml config file
         self.num_disc_act = config['num_disc_act']
         self.actor_lr = config['actor_lr']
-        self.critic_lr = config['critic_lr']
         self.actor_nn = config['actor_nn']
-        self.critic_nn = config['critic_nn']
         self.gamma = config['gamma']
         self.disable_logging = config['disable_logging']
         self.enable_gpu = config['enable_gpu']
@@ -111,9 +121,7 @@ class Agent:
             "batch_size": self.batch_size,
             "rollout_steps": self.rollout_steps,
             "agent_actor_lr": self.actor_lr,
-            "agent_critic_lr": self.critic_lr,
             "agent_actor_nn": self.actor_nn,
-            "agent_critic_nn": self.critic_nn,
             "gamma": self.gamma,
             "central_agent": self.central_agent,
             "random_soc_0": self.random_soc_0,
@@ -123,9 +131,7 @@ class Agent:
             "disable_noise": self.disable_noise
         }
 
-        self.discrete_actions = np.linspace(-0.9, 0.9, self.num_disc_act)
-
-        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["a2c-caus", "discrete"])
+        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["pg", "continuous"])
 
         # Enable GPU if available
 
@@ -142,21 +148,19 @@ class Agent:
 
             print('This model does not support extended observations yet')
 
-            obs_dim = env.obs_size
+            num_inputs = env.obs_size
 
         else:
 
-            obs_dim = env.obs_size
+            num_inputs = env.obs_size
 
-        # attr_dim =
+        num_actions = env.action_space.shape[0]
 
         # Configure neural networks
 
-        self.actor = TwoInputsActor(obs_dim=obs_dim, attr_dim=attr_dim ,act_dim=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
-        self.critic = TwoInputsCritic(obs_dim=obs_dim,attr_dim=attr_dim, hidden_size=self.critic_nn).to(self.device)
+        self.actor = Actor(state_size=num_inputs, num_actions=num_actions, hidden_size=self.actor_nn).to(self.device)
 
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
-        self.critic.optimizer = Adam(params=self.critic.parameters(), lr=self.critic_lr)
 
         # Check if we are resuming training from a previous checkpoint
 
@@ -165,12 +169,9 @@ class Agent:
             checkpoint = torch.load(self.wdb_logger.load_model().name)
             self.actor.load_state_dict(checkpoint['actor_state_dict'])
             self.actor.optimizer.load_state_dict(checkpoint['actor_opt_state_dict'])
-            self.critic.load_state_dict(checkpoint['critic_state_dict'])
-            self.critic.optimizer.load_state_dict(checkpoint['critic_opt_state_dict'])
             self.current_step = checkpoint['current_step']
 
         self.actor.train()
-        self.critic.train()
 
         # Hooks into the models to collect gradients and topology
 
@@ -188,18 +189,23 @@ class Agent:
 
     def select_action(self, state: Tensor):
 
-        probs = self.actor(state)
+        mu, sigma = self.actor(state)
+        mu = tanh(mu)
 
         # Define the distribution
 
-        dist = Categorical(probs=probs)
+        dist = Normal(loc=mu, scale=sigma)
 
-        # Sample action 
+        # Transform the distribution to restrict the range of the output
 
-        action_index = dist.sample()
-        action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
+        action = dist.sample()
+        action = action.clip(max=0.9999999, min=-0.9999999) # Clip to avoid NaNs
 
-        log_prob = dist.log_prob(action_index)
+        log_prob = dist.log_prob(action)
+
+        # Transform the action to be able to operate
+
+        action = action.reshape(-1,1).cpu().numpy()
 
         return action, log_prob
 
@@ -217,7 +223,7 @@ class Agent:
 
         state, reward, done, _ = self.env.reset()
 
-        if self.extended_observation:
+        if self.extended_obs:
 
             state = self.get_extended_observations(state)
 
@@ -226,6 +232,7 @@ class Agent:
         while not done:
 
             # Start by appending the state to create the states trajectory
+            
             states.append(state)
 
             # Perform action and pass to next state
@@ -234,7 +241,7 @@ class Agent:
 
             state, reward, done, _ = self.env.step(actions)
 
-            if self.extended_observation:
+            if self.extended_obs:
 
                 state = self.get_extended_observations(state)
 
@@ -256,7 +263,7 @@ class Agent:
             # Perform rollouts and sample trajectories
 
             states, rewards, log_probs, actions_hist = self.rollout()
-            
+
             # Append the trajectories to the arrays
 
             all_states.append(states)
@@ -264,30 +271,16 @@ class Agent:
             all_actions.append(actions_hist)
             all_net_energy.append(self.env.mg.net_energy)
 
-            # Perform the optimization step
+            # Process the current trajectory
 
-            log_probs = torch.stack(log_probs, dim=0)
-
-            states = tensor(np.array(states)).float().to(self.device)
-            value = self.critic(states).squeeze(dim=-1)
-
-            # Causality trick considering gamma
-
-            sum_rewards = []
-            prev_reward = 0
-
-            for reward in reversed(rewards):
-                prev_reward = np.copy(reward + self.gamma * prev_reward)
-                sum_rewards.insert(0, prev_reward+0.0)
-
-            sum_rewards = tensor(np.stack(sum_rewards)).squeeze(dim=-1).float().to(self.device)
+            sum_log_probs = torch.stack(log_probs, dim=0).sum(dim=0)
+            sum_rewards = tensor(np.sum(rewards, axis=0).squeeze(axis=-1)).to(self.device)
 
             # Perform the optimization step
 
             try:
 
-                actor_loss = - torch.mean(torch.sum(log_probs*(sum_rewards - value.detach()), dim=0))
-                critic_loss = MSELoss()(value, sum_rewards)
+                actor_loss = - torch.mean(sum_log_probs*sum_rewards, dim=0)
 
                 # Backpropagation to train Actor NN
 
@@ -295,52 +288,43 @@ class Agent:
                 actor_loss.backward()
                 self.actor.optimizer.step()
 
-                # Backpropagation to train Critic NN
-
-                self.critic.optimizer.zero_grad()
-                critic_loss.backward()
-                self.critic.optimizer.step()
-
             except Exception as e:
 
                 traceback.print_exc()
 
             # Check stop condition
 
-            stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
-            
-            if step % 50 == 0 or stop_condition:
+            stop_condition = actor_loss.abs().item() <= self.min_loss
+
+            if step % 5 == 0 or stop_condition:
 
                 # Wandb logging
 
                 results = {
-                    "rollout_avg_reward": rewards.mean(axis=1).sum(axis=0)[0],
+                    "rollout_avg_reward": sum_rewards[0,:].mean(),
                     "actor_loss": actor_loss.item(),
-                    "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
                 }
 
                 self.wdb_logger.log_dict(results)
 
-            if step % 250 == 0:
+            if step % 50 == 0:
 
                 # Save networks weights for resume training
 
                 self.save_weights(
                     actor_state_dict=self.actor.state_dict(),
                     actor_opt_state_dict=self.actor.optimizer.state_dict(),
-                    critic_state_dict=self.critic.state_dict(),
-                    critic_opt_state_dict=self.critic.optimizer.state_dict(),
                     current_step=step
                 )
 
                 self.wdb_logger.save_model()
-
+        
         return all_states, all_rewards, all_actions, all_net_energy
 
     # Save weights to file
 
-    def save_weights(self, actor_state_dict, actor_opt_state_dict, critic_state_dict, critic_opt_state_dict, current_step):
+    def save_weights(self, actor_state_dict, actor_opt_state_dict, current_step):
 
         model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models'
 
@@ -348,9 +332,7 @@ class Agent:
             'current_step': current_step,
             'actor_state_dict': actor_state_dict,
             'actor_opt_state_dict': actor_opt_state_dict,
-            'critic_state_dict': critic_state_dict,
-            'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c"_model.pt')
+        }, f'{model_path}/c_pg_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -360,14 +342,14 @@ class Agent:
 """
 
 if __name__ == '__main__':
-    model = "2h_d_a2c"
 
-    config = load_config(model)
+    config = load_config("c_pg")
     config = config['train']
-    
+
     # Start wandb logger
 
     try:
+
         '''
             Run the simulator
         '''
@@ -376,7 +358,7 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = MGSimple(config=config['env'])
+        my_env = SimpleHouse(config=config['env'])
 
         # Instantiate the agent
 
@@ -388,7 +370,7 @@ if __name__ == '__main__':
 
         agent.train()
 
-        # Finish wandb process
+        # Finish Wandb execution
 
         agent.wdb_logger.finish()
 

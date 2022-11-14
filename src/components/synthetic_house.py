@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 
 from src.components.battery import Battery, BatteryParameters
 
-class SimpleMicrogrid():
+class SyntheticHouse():
     
     def __init__(
         self, config
@@ -13,13 +13,12 @@ class SimpleMicrogrid():
         
         self.batch_size = config['batch_size']
         self.steps = config['rollout_steps']
-        self.peak_pv_gen = config['peak_pv_gen']
+        self.peak_pv_gen = config['pv']['peak_pv_gen']
         self.peak_grid_gen = config['peak_grid_gen']
-        self.peak_load = config['peak_load']
+        self.peak_load = config['profile']['peak_load']
         self.grid_sell_rate = config['grid_sell_rate']
         self.disable_noise = config['disable_noise']
-        self.profile = config['profile']
-        self.solar = config['solar']
+        self.profile = config['profile']['type']
 
         # Time variables
 
@@ -43,18 +42,8 @@ class SimpleMicrogrid():
         self.emission = None
 
         # Components
-        self.random_soc_0 = config['random_soc_0']
-        self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(
-            soc_0=0.1,
-            soc_max=0.9,
-            soc_min=0.1,
-            p_charge_max=0.8,
-            p_discharge_max=0.8,
-            efficiency=0.9,
-            capacity=1,
-            sell_price=0.0,
-            buy_price=0.0
-        ))
+        self.random_soc_0 = config['battery']['random_soc_0']
+        self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(config['battery']))
 
         # Generate data
 
@@ -74,14 +63,11 @@ class SimpleMicrogrid():
             max_noise_demand = 0
 
         # Generate data
-            # Solar Generation
-        if self.solar:
-            pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
-        else:
-            pv_base = np.zeros(self.steps)
-            self.pv_gen = np.zeros(self.steps)
 
-            # Demand Profile
+        # Solar Generation
+        pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
+
+        # Demand Profile
         if self.profile == 'family':
             base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
         elif self.profile == 'business':
@@ -260,7 +246,7 @@ class SimpleMicrogrid():
 
         # Apply action to battery and reach the new state
 
-        p_charge, p_discharge, i_action = self.battery.check_battery_constraints(power_rate=batt_action)
+        p_charge, p_discharge, _ = self.battery.check_battery_constraints(power_rate=batt_action)
         self.battery.apply_action(p_charge = p_charge, p_discharge = p_discharge)
 
         # Compute the next step net energy

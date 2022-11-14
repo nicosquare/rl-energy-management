@@ -1,59 +1,37 @@
 """
 
-    Advantage Actor Critic (A2C) with causality algorithm implementation
+    Policy Gradient with causality algorithm implementation
 
     Credits: Nicolás Cuadrado, Alejandro Gutierrez, MBZUAI, OptMLLab
 
 """
 
-from os import path
 import traceback
 import numpy as np
-import yaml
 import torch
 import argparse
 from tqdm import tqdm
 
 from gym import Env
-from torch import Tensor, tensor, tanh
-from torch.nn import Module, Linear, MSELoss
+from torch import Tensor, tensor
+from torch.nn import Module, Linear
 from torch.functional import F
 from torch.optim import Adam
-from torch.distributions import Normal
+from torch.distributions import Categorical
 
 from src.utils.wandb_logger import WandbLogger
-from src.environments.mg_simple import MGSimple
+from src.environments.simple_house import SimpleHouse
+from src.utils.tools import set_all_seeds, load_config
 
 torch.autograd.set_detect_anomaly(True)
 
-
 # Define global variables
 
-CONFIG_PATH = "config/"
 ZERO = 1e-5
-
-# Define global variables
-
-zero = 1e-5
 
 '''
     Agent definitions
 '''
-
-def set_all_seeds(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-
-# Function to load yaml configuration 
-
-def load_config(config_name):
-    
-    with open(path.join(CONFIG_PATH, config_name)) as file:
-        config = yaml.safe_load(file)
-    return config
-
 class Actor(Module):
 
     def __init__(self, state_size, num_actions, hidden_size=64):
@@ -62,27 +40,20 @@ class Actor(Module):
         # Define the independent inputs
 
         self.input = Linear(state_size, hidden_size)
-        self.output = Linear(hidden_size, num_actions * 2) # For each continuous action, a mu and a sigma
+        self.output = Linear(hidden_size, num_actions)
 
     def forward(self, state: Tensor) -> Tensor:
 
         state = F.relu(self.input(state))
 
-        normal_params = self.output(state)
+        output = F.softmax(self.output(state), dim=1)
 
-        mu = normal_params[:, 0]
-        sigma = normal_params[:, 1]
-
-        # Guarantee that the standard deviation is not negative
-
-        sigma = torch.exp(sigma) + zero
-
-        return mu, sigma
+        return output
 
 class Agent:
 
     def __init__(
-        self, config, env: Env,  resumed: bool = False 
+        self,config, env: Env,  resumed: bool = False 
     ):
 
         # Get env and its params
@@ -91,7 +62,7 @@ class Agent:
         self.rollout_steps = config['env']['rollout_steps']
         self.training_steps = config['env']['training_steps']
         self.encoding = config['env']['encoding']
-        self.random_soc_0 = config['env']['random_soc_0']
+        self.random_soc_0 = config['env']['battery']['random_soc_0']
         self.central_agent = config['env']['central_agent']
         self.disable_noise = config['env']['disable_noise']
         
@@ -131,7 +102,9 @@ class Agent:
             "disable_noise": self.disable_noise
         }
 
-        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["pg", "continuous"])
+        self.discrete_actions = np.linspace(-0.9, 0.9, self.num_disc_act)
+
+        self.wdb_logger = self.setup_wandb_logger(config=wdb_config, tags=["pg", "discrete"])
 
         # Enable GPU if available
 
@@ -154,12 +127,9 @@ class Agent:
 
             num_inputs = env.obs_size
 
-        num_actions = env.action_space.shape[0]
-
         # Configure neural networks
 
-        self.actor = Actor(state_size=num_inputs, num_actions=num_actions, hidden_size=self.actor_nn).to(self.device)
-
+        self.actor = Actor(state_size=num_inputs, num_actions=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
 
         # Check if we are resuming training from a previous checkpoint
@@ -175,13 +145,13 @@ class Agent:
 
         # Hooks into the models to collect gradients and topology
 
-        self.wdb_logger.watch_model(models=(self.actor, self.critic))
+        self.wdb_logger.watch_model(models=(self.actor))
 
     def setup_wandb_logger(self, config: dict, tags: list):
         
         wdb_logger = WandbLogger(tags=tags)
 
-        wdb_logger.disable_logging(disable=self.disable_logging)
+        wdb_logger.disable_logging(self.disable_logging)
 
         wdb_logger.init(config=config)
 
@@ -189,23 +159,18 @@ class Agent:
 
     def select_action(self, state: Tensor):
 
-        mu, sigma = self.actor(state)
-        mu = tanh(mu)
+        probs = self.actor(state)
 
         # Define the distribution
 
-        dist = Normal(loc=mu, scale=sigma)
+        dist = Categorical(probs=probs)
 
-        # Transform the distribution to restrict the range of the output
+        # Sample action
+        
+        action_index = dist.sample()
+        action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
 
-        action = dist.sample()
-        action = action.clip(max=0.9999999, min=-0.9999999) # Clip to avoid NaNs
-
-        log_prob = dist.log_prob(action)
-
-        # Transform the action to be able to operate
-
-        action = action.reshape(-1,1).cpu().numpy()
+        log_prob = dist.log_prob(action_index)
 
         return action, log_prob
 
@@ -223,7 +188,7 @@ class Agent:
 
         state, reward, done, _ = self.env.reset()
 
-        if self.extended_obs:
+        if self.extended_observation:
 
             state = self.get_extended_observations(state)
 
@@ -232,7 +197,6 @@ class Agent:
         while not done:
 
             # Start by appending the state to create the states trajectory
-            
             states.append(state)
 
             # Perform action and pass to next state
@@ -241,7 +205,7 @@ class Agent:
 
             state, reward, done, _ = self.env.step(actions)
 
-            if self.extended_obs:
+            if self.extended_observation:
 
                 state = self.get_extended_observations(state)
 
@@ -296,19 +260,19 @@ class Agent:
 
             stop_condition = actor_loss.abs().item() <= self.min_loss
 
-            if step % 5 == 0 or stop_condition:
+            if step % 50 == 0 or stop_condition:
 
                 # Wandb logging
 
                 results = {
-                    "rollout_avg_reward": sum_rewards[0,:].mean(),
+                    "rollout_avg_reward": rewards.mean(axis=1).sum(axis=0)[0],
                     "actor_loss": actor_loss.item(),
                     "avg_action": actions_hist.mean(),
                 }
 
                 self.wdb_logger.log_dict(results)
 
-            if step % 50 == 0:
+            if step % 250 == 0:
 
                 # Save networks weights for resume training
 
@@ -319,7 +283,7 @@ class Agent:
                 )
 
                 self.wdb_logger.save_model()
-        
+
         return all_states, all_rewards, all_actions, all_net_energy
 
     # Save weights to file
@@ -332,7 +296,7 @@ class Agent:
             'current_step': current_step,
             'actor_state_dict': actor_state_dict,
             'actor_opt_state_dict': actor_opt_state_dict,
-        }, f'{model_path}/c_pg_model.pt')
+        }, f'{model_path}/d_pg_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -343,13 +307,12 @@ class Agent:
 
 if __name__ == '__main__':
 
-    config = load_config("c_pg")
+    config = load_config("d_pg")
     config = config['train']
-
+    
     # Start wandb logger
 
     try:
-
         '''
             Run the simulator
         '''
@@ -358,7 +321,7 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = MGSimple(config=config['env'])
+        my_env = SimpleHouse(config=config['env'])
 
         # Instantiate the agent
 
@@ -370,7 +333,7 @@ if __name__ == '__main__':
 
         agent.train()
 
-        # Finish Wandb execution
+        # Finish wandb process
 
         agent.wdb_logger.finish()
 

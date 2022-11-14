@@ -12,15 +12,27 @@ train:
     rollout_steps: 24
     training_steps: 500
     central_agent: False
-    random_soc_0: False
     disable_noise: True
     encoding: True
-    peak_pv_gen: 1
     peak_grid_gen: 1
-    peak_load: 1
     grid_sell_rate: 0.25
     min_temp: 29
     max_temp: 31
-    profile: Family
-    solar: True
+    profile:
+      type: family
+      peak_load: 1
+    battery:
+      random_soc_0: False
+      capacity: 1
+      efficiency: 0.90
+      soc_max: 0.9
+      soc_min: 0.1
+      p_charge_max: 0.8
+      p_discharge_max: 0.8
+      efficiency: 0.9
+      capacity: 1
+      sell_price: 0.0
+      buy_price: 0.0
+    pv:
+      peak_pv_gen: 1
 # reward?
