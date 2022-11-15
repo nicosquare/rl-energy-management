@@ -27,6 +27,7 @@ class SyntheticMicrogrid():
         self.temp = np.random.uniform(self.min_temp, self.max_temp, self.steps)
 
         # Houses
+        
         self.houses = self.house_loader(config["houses"])
 
     def house_loader(self, config) -> list[SyntheticHouse]:
@@ -36,6 +37,9 @@ class SyntheticMicrogrid():
         for _, attr in zip(config, config.values()):
 
             config = attr
+
+            # Append necessary information for SyntheticHouse class
+
             config['batch_size'] = self.batch_size
             config['rollout_steps'] = self.steps
             config['peak_grid_gen'] = self.peak_grid_gen
@@ -52,12 +56,7 @@ class SyntheticMicrogrid():
 
     def observe(self) -> np.ndarray:
 
-        states = []
-
-        for house in self.houses:
-            states.append(house.observe())
-
-        return np.stack(states, axis=0)
+        return np.stack([house.observe() for house in self.houses], axis=0)
 
     def apply_action(self, batt_action: np.array) -> Union[np.ndarray, np.ndarray]:
 
@@ -73,14 +72,24 @@ class SyntheticMicrogrid():
             next_state.append(house_obs)
             reward.append(house_reward)
 
+        self.increment_step()
+
         return np.stack(next_state, axis=0), np.stack(reward, axis=0)
+
+    def get_houses_attrs(self) -> np.ndarray:
+
+        return np.stack([house.attr for house in self.houses], axis=0)
 
     def increment_step(self) -> None:
         
         for house in self.houses:
             house.increment_step()
 
+        self.current_step = self.houses[0].current_step
+
     def reset(self):
         
         for house in self.houses:
             house.reset()
+
+        self.current_step = self.houses[0].current_step

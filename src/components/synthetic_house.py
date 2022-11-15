@@ -45,12 +45,32 @@ class SyntheticHouse():
         self.random_soc_0 = config['battery']['random_soc_0']
         self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(config['battery']))
 
+        # Save house attributes as an array
+
+        self.profile_types = ['family', 'business', 'teenagers']
+
+        # Encode profile type like a one-hot vector # TODO: Improve the utils OneHotEncoder to accept strings
+
+        self.attr = np.zeros(len(self.profile_types))
+        self.attr[self.profile_types.index(config['profile']['type'])] = 1
+
+        self.attr = np.insert(self.attr, self.attr.shape[0], [
+            config['profile']['peak_load'],
+            config['battery']['capacity'],
+            config['battery']['efficiency'],
+            config['battery']['soc_max'],
+            config['battery']['soc_min'],
+            config['battery']['p_charge_max'],
+            config['battery']['p_discharge_max'],
+            config['pv']['peak_pv_gen'],
+        ])
+
         # Generate data
 
         self.generate_data()
         
 
-    def generate_data(self, plot: bool = False):
+    def generate_data(self):
 
         min_noise_pv = 0
         max_noise_pv = 0.1
@@ -88,46 +108,6 @@ class SyntheticHouse():
         # Net energy starts with remaining energy value as not action has been taken yet
 
         self.net_energy = np.zeros((self.batch_size, self.steps))
-
-        # Plot data
-
-        if plot:
-            
-            _, axs = plt.subplots(6, 1, figsize=(15, 10), sharex=True)
-
-            for ax in axs:
-                ax.minorticks_on()
-                ax.grid(True, which='both', axis='both', alpha=0.5)
-
-            axs[0].plot(self.time, pv_base, label='PV base')
-            axs[0].plot(self.time, self.pv_gen, label='PV generation')
-            axs[0].set_ylabel('kW')
-            axs[0].legend()
-
-            axs[1].plot(self.time, base, label='Base demand')
-            axs[1].plot(self.time, self.demand, label='Demand')
-            axs[1].set_ylabel('kW')
-            axs[1].legend()
-
-            axs[2].plot(self.time, nuclear_gen, label='Nuclear generation')
-            axs[2].plot(self.time, gas_gen, label='Gas generation')
-            axs[2].plot(self.time, self.total_gen, label='Total generation')
-            axs[2].set_ylabel('kW')
-            axs[2].legend()
-
-            axs[3].plot(self.time, self.price, label='Price')
-            axs[3].set_ylabel('$/kWh')
-            axs[3].legend()
-
-            axs[4].plot(self.time, self.emission, label='Emission')
-            axs[4].set_ylabel('kgCO2/kWh')
-            axs[4].legend()
-
-            axs[5].plot(self.time, self.remaining_energy, label="Remaining energy")
-            axs[5].set_ylabel('kW')
-            axs[5].legend()
-
-            plt.show()
 
     def pv_generation(self, min_noise: float = 0, max_noise: float = 0.1):
 

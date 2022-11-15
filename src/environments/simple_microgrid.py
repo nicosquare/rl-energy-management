@@ -44,7 +44,7 @@ class SimpleMicrogrid(Env):
 
         # Get the real size of the observation with the encoding
 
-        self.obs_size = self.normalize_obs(obs=np.array([low_limit_obs])).shape[1]
+        self.obs_size = self.normalize_obs(obs=np.array([[low_limit_obs]])).shape[2]
 
         """
         Action space is composed by:
@@ -64,6 +64,11 @@ class SimpleMicrogrid(Env):
         )
 
         self.mg = SyntheticMicrogrid(config=config)
+
+        # Build a multibatch house attr array
+
+        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], 32, axis=1)
+        self.house_attr_size = self.houses_attr.shape[2]
 
     def observe(self):
         return self.normalize_obs(self.mg.observe())
@@ -86,28 +91,27 @@ class SimpleMicrogrid(Env):
 
     def normalize_obs(self, obs):
 
-        encoded_obs = None
+        encoded_obs = []
 
         if self.encoding:
 
-            for i, encoder in enumerate(self.encoders):
+            for i in range(len(obs)):
 
-                if encoded_obs is None:
-                    encoded_obs = encoder*obs[:,i]
-                else:
-                    encoded_obs = np.insert(encoded_obs, encoded_obs.shape[1], encoder*obs[:,i], axis=1)
+                house_encoded_obs = None
+
+                for j, encoder in enumerate(self.encoders):
+        
+                    if house_encoded_obs is None:
+                        house_encoded_obs = encoder*obs[i,:,j]
+                    else:
+                        house_encoded_obs = np.insert(house_encoded_obs, house_encoded_obs.shape[1], encoder*obs[i,:,j], axis=1)
+
+                encoded_obs.append(house_encoded_obs)
+
+            encoded_obs = np.stack(encoded_obs, axis=0)
+
         else:
 
             encoded_obs = obs
 
         return encoded_obs
-
-if __name__ == "__main__":
-
-    from src.utils.tools import load_config
-
-    config = load_config("d_a2c_comm")
-
-    env = SimpleMicrogrid(config=config['train']['env'])
-    
-    print(['asd'])
