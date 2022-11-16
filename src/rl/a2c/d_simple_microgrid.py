@@ -19,7 +19,7 @@ from torch.optim import Adam
 from torch.distributions import Categorical
 
 from src.utils.wandb_logger import WandbLogger
-from src.environments.simple_house import SimpleHouse
+from src.environments.simple_microgrid import SimpleMicrogrid
 
 from src.utils.tools import set_all_seeds, load_config
 torch.autograd.set_detect_anomaly(True)
@@ -33,39 +33,53 @@ ZERO = 1e-5
 '''
 
 
-class TwoInputsActor(Module):
-    def __init__(self, obs_dim, attr_dim, act_dim, hidden=64) -> None:
-        super(TwoInputsActor, self).__init__()
-        self.obs_input = Linear(obs_dim, hidden)
-        self.obs_fc = Linear(hidden, hidden*2)
-        self.attr_input = Linear(attr_dim, hidden)
-        self.attr_fc = Linear(hidden, hidden*2)
-        self.concat_fc = Linear(hidden*4, hidden*2)
-        self.output = Linear(hidden*2, act_dim)
+class Actor(Module):
+
+    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+
+        super(Actor, self).__init__()
+
+        self.obs_input = Linear(obs_dim, hidden_dim)
+        self.obs_fc = Linear(hidden_dim, hidden_dim*2)
+        self.attr_input = Linear(attr_dim, hidden_dim)
+        self.attr_fc = Linear(hidden_dim, hidden_dim*2)
+        self.concat_fc = Linear(hidden_dim*4, hidden_dim*2)
+        self.output = Linear(hidden_dim*2, act_dim)
 
     def forward(self, obs, attr):
-        ob = F.selu(self.obs_input(obs))
-        ob = F.selu(self.obs_fc(ob))
+
+        obs = F.selu(self.obs_input(obs))
+        obs = F.selu(self.obs_fc(obs))
+
         att = F.selu(self.attr_input(attr))
         att = F.selu(self.attr_fc(att))
-        x = torch.cat([att, ob], dim=0)
-        x = F.selu(self.concat_fc(x))
-        x = F.softmax(self.output(x), dim=0)
 
-        return x
+        output = torch.cat([att, obs], dim=2)
+        output = F.selu(self.concat_fc(output))
 
-class TwoInputsCritic(Module):
-    def __init__(self, obs_dim,attr_dim, hidden=64) -> None:
-        super(TwoInputsCritic, self).__init__()
-        self.fc1 = Linear(obs_dim, hidden)
-        self.fc2 = Linear(attr_dim, hidden)
-        self.fc3 = Linear(hidden*2, 1)
+        output = F.softmax(self.output(output), dim=0)
+
+        return output
+
+class Critic(Module):
+
+    def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
+
+        super(Critic, self).__init__()
+
+        self.fc1 = Linear(obs_dim, hidden_dim)
+        self.fc2 = Linear(attr_dim, hidden_dim)
+        self.fc3 = Linear(hidden_dim*2, 1)
+
     def forward(self, obs, attr):
-        ob = F.selu(self.fc1(obs))
+
+        obs = F.selu(self.fc1(obs))
         att = F.selu(self.fc2(attr))
-        x = torch.cat([att, ob], dim=0)
-        x = self.fc3(x)
-        return x
+
+        output = torch.cat([att, obs], dim=0)
+        output = self.fc3(output)
+
+        return output
 
 class Agent:
 
@@ -74,17 +88,19 @@ class Agent:
     ):
 
         # Get env and its params
+
         self.env = env
         self.batch_size = config['env']['batch_size']
         self.rollout_steps = config['env']['rollout_steps']
         self.training_steps = config['env']['training_steps']
         self.encoding = config['env']['encoding']
-        self.random_soc_0 = config['env']['battery']['random_soc_0']
         self.central_agent = config['env']['central_agent']
         self.disable_noise = config['env']['disable_noise']
         
         config = config['agent']
+
         # Get params from yaml config file
+
         self.num_disc_act = config['num_disc_act']
         self.actor_lr = config['actor_lr']
         self.critic_lr = config['critic_lr']
@@ -106,6 +122,7 @@ class Agent:
         '''
 
         #TODO review all params are uploaded
+
         wdb_config={
             "training_steps": self.training_steps,
             "batch_size": self.batch_size,
@@ -116,7 +133,7 @@ class Agent:
             "agent_critic_nn": self.critic_nn,
             "gamma": self.gamma,
             "central_agent": self.central_agent,
-            "random_soc_0": self.random_soc_0,
+            "random_soc_0": env.mg.houses[0].battery.random_soc_0, # It will be the same for all houses
             "encoding": self.encoding,
             "extended_observation": self.extended_observation,
             "num_disc_act": self.num_disc_act,
@@ -148,12 +165,12 @@ class Agent:
 
             obs_dim = env.obs_size
 
-        attr_dim = 1 # To be computed
+        attr_dim = env.house_attr_size
 
         # Configure neural networks
 
-        self.actor = TwoInputsActor(obs_dim=obs_dim, attr_dim=attr_dim ,act_dim=len(self.discrete_actions), hidden_size=self.actor_nn).to(self.device)
-        self.critic = TwoInputsCritic(obs_dim=obs_dim, attr_dim=attr_dim, hidden_size=self.critic_nn).to(self.device)
+        self.actor = Actor(obs_dim=obs_dim, attr_dim=attr_dim ,act_dim=len(self.discrete_actions), hidden_dim=self.actor_nn).to(self.device)
+        self.critic = Critic(obs_dim=obs_dim, attr_dim=attr_dim, hidden_dim=self.critic_nn).to(self.device)
 
         self.actor.optimizer = Adam(params=self.actor.parameters(), lr=self.actor_lr)
         self.critic.optimizer = Adam(params=self.critic.parameters(), lr=self.critic_lr)
@@ -188,7 +205,7 @@ class Agent:
 
     def select_action(self, state: Tensor):
 
-        probs = self.actor(state)
+        probs = self.actor(obs=state, attr=tensor(self.env.houses_attr, device=self.device).float())
 
         # Define the distribution
 
@@ -197,7 +214,7 @@ class Agent:
         # Sample action 
 
         action_index = dist.sample()
-        action = np.stack([[self.discrete_actions[batch_index.cpu()]] for batch_index in action_index])
+        action = np.stack([[[self.discrete_actions[batch_index.cpu()]] for batch_index in batch_actions] for batch_actions in action_index])
 
         log_prob = dist.log_prob(action_index)
 
@@ -376,7 +393,7 @@ if __name__ == '__main__':
 
         # Instantiate the environment
 
-        my_env = SimpleHouse(config=config['env'])
+        my_env = SimpleMicrogrid(config=config['env'])
 
         # Instantiate the agent
 
