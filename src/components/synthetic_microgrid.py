@@ -30,6 +30,10 @@ class SyntheticMicrogrid():
         
         self.houses = self.house_loader(config["houses"])
 
+    @property
+    def net_energy(self):
+        return np.stack([house.net_energy for house in self.houses])
+
     def house_loader(self, config) -> list[SyntheticHouse]:
 
         houses = []
@@ -81,9 +85,8 @@ class SyntheticMicrogrid():
         return np.stack([house.attr for house in self.houses], axis=0)
 
     def increment_step(self) -> None:
-        
-        for house in self.houses:
-            house.increment_step()
+
+        # The current_step of the microgrid is the same for any of the houses
 
         self.current_step = self.houses[0].current_step
 

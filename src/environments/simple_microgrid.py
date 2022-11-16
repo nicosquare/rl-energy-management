@@ -24,6 +24,7 @@ class SimpleMicrogrid(Env):
         
         """
         # Get params from yaml config file
+        self.batch_size = config['batch_size']
         self.encoding = config['encoding']
         self.n_houses = len(config['houses'])
 
@@ -67,7 +68,7 @@ class SimpleMicrogrid(Env):
 
         # Build a multibatch house attr array
 
-        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], 32, axis=1)
+        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], self.batch_size, axis=1)
         self.house_attr_size = self.houses_attr.shape[2]
 
     def observe(self):

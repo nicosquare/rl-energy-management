@@ -76,7 +76,7 @@ class Critic(Module):
         obs = F.selu(self.fc1(obs))
         att = F.selu(self.fc2(attr))
 
-        output = torch.cat([att, obs], dim=0)
+        output = torch.cat([att, obs], dim=3)
         output = self.fc3(output)
 
         return output
@@ -286,7 +286,8 @@ class Agent:
             log_probs = torch.stack(log_probs, dim=0)
 
             states = tensor(np.array(states)).float().to(self.device)
-            value = self.critic(states).squeeze(dim=-1)
+            houses_attr = tensor(np.repeat(self.env.houses_attr[np.newaxis,:,:,:], self.rollout_steps, axis=0), device=self.device).float()
+            value = self.critic(obs=states, attr=houses_attr).squeeze(dim=-1)
 
             # Causality trick considering gamma
 
