@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Union
+from typing import Union, List
 
 from src.components.synthetic_house import SyntheticHouse
 
@@ -34,7 +34,7 @@ class SyntheticMicrogrid():
     def net_energy(self):
         return np.stack([house.net_energy for house in self.houses])
 
-    def house_loader(self, config) -> list[SyntheticHouse]:
+    def house_loader(self, config) -> List[SyntheticHouse]:
 
         houses = []
 

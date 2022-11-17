@@ -18,6 +18,7 @@ from torch.functional import F
 from torch.optim import Adam
 from torch.distributions import Categorical
 
+
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
@@ -57,7 +58,7 @@ class Actor(Module):
         output = torch.cat([att, obs], dim=2)
         output = F.selu(self.concat_fc(output))
 
-        output = F.softmax(self.output(output), dim=0)
+        output = F.softmax(self.output(output), dim=2)
 
         return output
 
@@ -332,7 +333,7 @@ class Agent:
                 # Wandb logging
 
                 results = {
-                    "rollout_avg_reward": rewards.mean(axis=1).sum(axis=0)[0],
+                    "rollout_avg_reward": rewards.mean(axis=1).mean(axis=2).sum(axis=0)[0],
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
