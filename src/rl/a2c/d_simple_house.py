@@ -21,7 +21,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_house import SimpleHouse
 
-from src.utils.tools import set_all_seeds, load_config
+from src.utils.tools import set_all_seeds, load_config, plot_results
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -384,7 +384,11 @@ if __name__ == '__main__':
 
         # Launch the training
 
-        agent.train()
+        t_states, t_rewards, t_actions, t_net_energy = agent.train()
+
+        # Plot results
+
+        plot_results(env=my_env, states=t_states, actions=t_actions, rewards=t_rewards, net_energy=t_net_energy, title='Microgrid')
 
         # Finish wandb process
 

@@ -54,7 +54,7 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
 
         # Plot results of interest
 
-        fig = plt.figure(figsize=(10, 15), num=house_name)
+        fig = plt.figure(figsize=(10, 15), num=house_name, constrained_layout=True)
         axs = fig.subplots(5, 2)
 
         for ax_x in axs:
@@ -89,11 +89,11 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         axs[0][0].plot(mean_reward_time[three_quart_index,:,ix_house], label='75%')
         axs[0][0].plot(mean_reward_time[last_index,:,ix_house], label='100%')
         axs[0][0].set_title('Mean reward through time')
-        axs[0][0].legend()
+        axs[0][0].legend(fontsize='xx-small')
         
         axs[0][1].plot(mean_reward_epochs[:,ix_house], label='Reward')
         axs[0][1].set_title('Mean accumulated reward through epochs')
-        axs[0][1].legend()
+        axs[0][1].legend(fontsize='xx-small')
         
         axs[1][0].plot(mean_action_time[0, :, None if single_house else ix_house], label='0%')
         axs[1][0].plot(mean_action_time[quart_index, :, None if single_house else ix_house], label='25%')
@@ -101,10 +101,10 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         axs[1][0].plot(mean_action_time[three_quart_index, :, None if single_house else ix_house], label='75%')
         axs[1][0].plot(mean_action_time[last_index, :, None if single_house else ix_house], label='100%')
         axs[1][0].set_title('Mean action through time')
-        axs[1][0].legend()
+        axs[1][0].legend(fontsize='xx-small')
 
         axs[1][1].plot(mean_action_epochs[:, None if single_house else ix_house], label='Action')
-        axs[1][1].legend()
+        axs[1][1].legend(fontsize='xx-small')
         axs[1][1].set_title('Mean action through epochs')
 
         axs[2][0].plot(mean_soc_time[0, :, None if single_house else ix_house], label='0%')
@@ -112,12 +112,12 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         axs[2][0].plot(mean_soc_time[mid_index, :, None if single_house else ix_house], label='50%')
         axs[2][0].plot(mean_soc_time[three_quart_index, :, None if single_house else ix_house], label='75%')
         axs[2][0].plot(mean_soc_time[last_index, :, None if single_house else ix_house], label='100%')
-        axs[2][0].legend()
+        axs[2][0].legend(fontsize='xx-small')
         axs[2][0].set_title('Mean SOC through time')
 
         axs[2][1].plot(mean_soc_epochs[:,None if single_house else ix_house], label='SOC')
         axs[2][1].set_title('Mean SOC through epochs')
-        axs[2][1].legend()
+        axs[2][1].legend(fontsize='xx-small')
 
         axs[3][0].plot(mean_net_energy_time[0, None if single_house else ix_house, :].T, label='0%')
         axs[3][0].plot(mean_net_energy_time[quart_index, None if single_house else ix_house, :].T, label='25%')
@@ -125,28 +125,29 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         axs[3][0].plot(mean_net_energy_time[three_quart_index, None if single_house else ix_house, :].T, label='75%')
         axs[3][0].plot(mean_net_energy_time[last_index, None if single_house else ix_house, :].T, label='100%')
         axs[3][0].plot((demand - pv_gen), label='Remaining', linestyle='--', linewidth=2)
-        axs[3][0].legend()
+        axs[3][0].legend(fontsize='xx-small')
         axs[3][0].set_title('Mean net energy through time')
 
         axs[3][1].plot(mean_net_energy_epochs[:, None if single_house else ix_house], label='Net energy')
         axs[3][1].set_title('Mean net energy through epochs')
-        axs[3][1].legend()
+        axs[3][1].legend(fontsize='xx-small')
 
         axs[4][0].plot(pv_gen, label='PV')
         axs[4][0].plot(demand, label='Demand')
-        axs[4][0].set_title('PV and Demand')
-        axs[4][0].legend()
+        axs[4][0].set_title('PV and Demand', loc='left')
+        axs[4][0].legend(fontsize='xx-small')
 
         axs[4][1].plot(price, label='Price')
         axs[4][1].plot(emission, label='Emission factor')
         axs[4][1].set_title('Price and Emission factor')
-        axs[4][1].legend()
+        axs[4][1].legend(fontsize='xx-small')
     
-    fig.suptitle(title)
-    fig.tight_layout()
+        # fig.suptitle(title)
+        # fig.tight_layout()
 
-    if save:
-        plt.savefig(filename, dpi=300)
+        if save:
+            fig.savefig(f'{filename}_{house_name}', dpi=300)
 
+    # plt.tight_layout()
     plt.grid()
     plt.show()

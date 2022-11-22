@@ -58,10 +58,10 @@ class SyntheticHouse():
             config['profile']['peak_load'],
             config['battery']['capacity'],
             config['battery']['efficiency'],
-            config['battery']['soc_max'],
-            config['battery']['soc_min'],
-            config['battery']['p_charge_max'],
-            config['battery']['p_discharge_max'],
+            # config['battery']['soc_max'],
+            # config['battery']['soc_min'],
+            # config['battery']['p_charge_max'],
+            # config['battery']['p_discharge_max'],
             config['pv']['peak_pv_gen'],
         ])
 

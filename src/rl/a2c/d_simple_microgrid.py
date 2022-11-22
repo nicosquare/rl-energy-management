@@ -13,16 +13,15 @@ from tqdm import tqdm
 
 from gym import Env
 from torch import Tensor, tensor
-from torch.nn import Module, Linear, MSELoss
+from torch.nn import Module, Linear, MSELoss, Flatten
 from torch.functional import F
 from torch.optim import Adam
 from torch.distributions import Categorical
 
-
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
-from src.utils.tools import set_all_seeds, load_config
+from src.utils.tools import set_all_seeds, load_config, plot_results
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -33,6 +32,90 @@ ZERO = 1e-5
     Agent definitions
 '''
 
+# class Actor(Module):
+
+#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+
+#         super(Actor, self).__init__()
+
+#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
+#         self.output = Linear(hidden_dim, act_dim)
+
+#     def forward(self, obs, attr):
+
+#         input = torch.cat([attr, obs], dim=2)
+#         input = F.relu(self.input(input))
+
+#         output = F.softmax(self.output(input), dim=2)
+
+#         return output
+
+# class Critic(Module):
+
+#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
+
+#         super(Critic, self).__init__()
+
+#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
+#         self.output = Linear(hidden_dim, 1)
+
+#     def forward(self, obs, attr):
+
+#         input = torch.cat([attr, obs], dim=3)
+
+#         output = F.relu(self.input(input))
+
+#         output = self.output(output)
+
+#         return output
+
+# class Actor(Module):
+
+#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+
+#         super(Actor, self).__init__()
+
+#         self.obs_input = Linear(obs_dim, hidden_dim)
+#         self.obs_fc = Linear(hidden_dim, hidden_dim*2)
+#         self.attr_input = Linear(attr_dim, hidden_dim)
+#         self.attr_fc = Linear(hidden_dim, hidden_dim*2)
+#         self.concat_fc = Linear(hidden_dim*4, hidden_dim*2)
+#         self.output = Linear(hidden_dim*2, act_dim)
+
+#     def forward(self, obs, attr):
+
+#         obs = F.selu(self.obs_input(obs))
+#         obs = F.selu(self.obs_fc(obs))
+
+#         att = F.selu(self.attr_input(attr))
+#         att = F.selu(self.attr_fc(att))
+
+#         output = torch.cat([att, obs], dim=2)
+#         output = F.selu(self.concat_fc(output))
+
+#         output = F.softmax(self.output(output), dim=2)
+
+#         return output
+
+# class Critic(Module):
+
+#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
+
+#         super(Critic, self).__init__()
+
+#         self.input_obs = Linear(obs_dim, hidden_dim)
+#         self.input_attr = Linear(attr_dim, hidden_dim)
+#         self.output = Linear(hidden_dim*2, 1)
+
+#     def forward(self, obs, attr):
+
+#         obs = F.selu(self.input_obs(obs))
+#         att = F.relu(self.input_attr(attr))
+
+#         output = torch.cat([att, obs], dim=3)
+#         output = self.output(output)
+
+#         return output
 
 class Actor(Module):
 
@@ -41,24 +124,14 @@ class Actor(Module):
         super(Actor, self).__init__()
 
         self.obs_input = Linear(obs_dim, hidden_dim)
-        self.obs_fc = Linear(hidden_dim, hidden_dim*2)
-        self.attr_input = Linear(attr_dim, hidden_dim)
-        self.attr_fc = Linear(hidden_dim, hidden_dim*2)
-        self.concat_fc = Linear(hidden_dim*4, hidden_dim*2)
-        self.output = Linear(hidden_dim*2, act_dim)
+        
+        self.output = Linear(hidden_dim, act_dim)
 
     def forward(self, obs, attr):
 
-        obs = F.selu(self.obs_input(obs))
-        obs = F.selu(self.obs_fc(obs))
-
-        att = F.selu(self.attr_input(attr))
-        att = F.selu(self.attr_fc(att))
-
-        output = torch.cat([att, obs], dim=2)
-        output = F.selu(self.concat_fc(output))
-
-        output = F.softmax(self.output(output), dim=2)
+        obs = F.relu(self.obs_input(obs))
+        
+        output = F.softmax(self.output(obs), dim=2)
 
         return output
 
@@ -68,17 +141,14 @@ class Critic(Module):
 
         super(Critic, self).__init__()
 
-        self.fc1 = Linear(obs_dim, hidden_dim)
-        self.fc2 = Linear(attr_dim, hidden_dim)
-        self.fc3 = Linear(hidden_dim*2, 1)
+        self.input_obs = Linear(obs_dim, hidden_dim)
+        
+        self.output = Linear(hidden_dim, 1)
 
     def forward(self, obs, attr):
 
-        obs = F.selu(self.fc1(obs))
-        att = F.selu(self.fc2(attr))
-
-        output = torch.cat([att, obs], dim=3)
-        output = self.fc3(output)
+        obs = F.relu(self.input_obs(obs))
+        output = self.output(obs)
 
         return output
 
@@ -333,7 +403,7 @@ class Agent:
                 # Wandb logging
 
                 results = {
-                    "rollout_avg_reward": rewards.mean(axis=1).mean(axis=2).sum(axis=0)[0],
+                    "rollout_avg_reward": rewards.mean(axis=2).sum(axis=0).mean(),
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
                     "avg_action": actions_hist.mean(),
@@ -379,7 +449,7 @@ class Agent:
 """
 
 if __name__ == '__main__':
-    model = "d_a2c_comm"
+    model = "d_a2c_mg"
 
     config = load_config(model)
     config = config['train']
@@ -405,8 +475,12 @@ if __name__ == '__main__':
 
         # Launch the training
 
-        agent.train()
+        t_states, t_rewards, t_actions, t_net_energy = agent.train()
 
+        # Plot results
+
+        plot_results(env=my_env, states=t_states, actions=t_actions, rewards=t_rewards, net_energy=t_net_energy, title='Microgrid')
+        
         # Finish wandb process
 
         agent.wdb_logger.finish()
