@@ -22,76 +22,211 @@ train:
     min_temp: 29
     max_temp: 31
     houses:
-      house_1:
-        profile:
-          type: family
-          peak_load: 1
-        battery:
-          random_soc_0: False
-          capacity: 1
-          efficiency: 0.90
-          soc_max: 0.9
-          soc_min: 0.1
-          p_charge_max: 0.8
-          p_discharge_max: 0.8
-          efficiency: 0.9
-          capacity: 1
-          sell_price: 0.0
-          buy_price: 0.0
-        pv:
-          peak_pv_gen: 1
-      house_2:
-        profile:
-          type: business
-          peak_load: 1
-        battery:
-          random_soc_0: False
-          capacity: 1
-          efficiency: 0.90
-          soc_max: 0.9
-          soc_min: 0.1
-          p_charge_max: 0.8
-          p_discharge_max: 0.8
-          efficiency: 0.9
-          capacity: 1
-          sell_price: 0.0
-          buy_price: 0.0
-        pv:
-          peak_pv_gen: 1
-      house_3:
-        profile:
-          type: teenagers
-          peak_load: 1
-        battery:
-          random_soc_0: False
-          capacity: 1
-          efficiency: 0.90
-          soc_max: 0.9
-          soc_min: 0.1
-          p_charge_max: 0.8
-          p_discharge_max: 0.8
-          efficiency: 0.9
-          capacity: 1
-          sell_price: 0.0
-          buy_price: 0.0
-        pv:
-          peak_pv_gen: 1
-      house_4:
-        profile:
-          type: family
-          peak_load: 0.6
-        battery:
-          random_soc_0: False
-          capacity: 1
-          efficiency: 0.90
-          soc_max: 0.9
-          soc_min: 0.1
-          p_charge_max: 0.8
-          p_discharge_max: 0.8
-          efficiency: 0.9
-          capacity: 1
-          sell_price: 0.0
-          buy_price: 0.0
-        pv:
-          peak_pv_gen: 0.5
+      train:
+        house_1:
+          profile:
+            type: family
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_2:
+          profile:
+            type: business
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_3:
+          profile:
+            type: teenagers
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_4:
+          profile:
+            type: family
+            peak_load: 0.6
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 0.5
+      eval:
+        house_1:
+          profile:
+            type: family
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 2
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 0.5
+        house_2:
+          profile:
+            type: business
+            peak_load: 0.8
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 0.8
+        house_3:
+          profile:
+            type: teenagers
+            peak_load: 0.4
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_4:
+          profile:
+            type: teenagers
+            peak_load: 0.2
+          battery:
+            random_soc_0: False
+            capacity: 0.5
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 0.8
+      test:
+        house_1:
+          profile:
+            type: family
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_2:
+          profile:
+            type: business
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_3:
+          profile:
+            type: teenagers
+            peak_load: 1
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 1
+        house_4:
+          profile:
+            type: family
+            peak_load: 0.6
+          battery:
+            random_soc_0: False
+            capacity: 1
+            efficiency: 0.90
+            soc_max: 0.9
+            soc_min: 0.1
+            p_charge_max: 0.8
+            p_discharge_max: 0.8
+            efficiency: 0.9
+            sell_price: 0.0
+            buy_price: 0.0
+          pv:
+            peak_pv_gen: 0.5
 # reward?

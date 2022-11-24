@@ -9,7 +9,6 @@
 import traceback
 import numpy as np
 import torch
-import argparse
 from tqdm import tqdm
 
 from gym import Env
@@ -284,7 +283,18 @@ class Agent:
 
                 self.wdb_logger.save_model()
 
-        return all_states, all_rewards, all_actions, all_net_energy
+        # Return results dictionary
+        
+        return {
+            "training_steps": self.training_steps,
+            "rollout_steps": self.rollout_steps,
+            "train": {
+                "states": all_states,
+                "rewards": all_rewards,
+                "actions": all_actions,
+                "net_energy": all_net_energy
+            },
+        }
 
     # Save weights to file
 

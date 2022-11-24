@@ -21,21 +21,22 @@ def load_config(config_name):
     return config
 
 
-def plot_results(env, states, rewards, actions, net_energy, title, save=False, filename='results.png'):
+def plot_results(env, results, save : bool = False, filename: str ="results.png"):
+    
+    # Get epochs checkpoint indexes
 
-    # Get list indexes
+    n_epochs = results['training_steps']
+    quart_index = int(n_epochs / 4)
+    mid_index = int(n_epochs/2)
+    three_quart_index = int(n_epochs * 3/4)
+    last_index = n_epochs - 1
 
-    quart_index = int(len(states) / 4)
-    mid_index = int(len(states)/2)
-    three_quart_index = int(len(states) * 3/4)
-    last_index = len(states) - 1
+    # Parse training data
 
-    # Parse list of arrays
-
-    rewards = np.stack(rewards, axis=0)
-    actions = np.stack(actions, axis=0)
-    states = np.stack(states, axis=0)
-    net_energy = np.stack(net_energy, axis=0)
+    rewards = np.stack(results['train']['rewards'], axis=0)
+    actions = np.stack(results['train']['actions'], axis=0)
+    states = np.stack(results['train']['states'], axis=0)
+    net_energy = np.stack(results['train']['net_energy'], axis=0)
 
     # Custom configuration depending on the experiment setup (number of houses/actions)
 
@@ -47,6 +48,38 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         single_house = False
         n_houses = env.n_houses
         all_socs = states[:,:,:,:,-1]
+
+    # Parse metrics
+
+    if not single_house:
+
+        t_price_metric = np.stack(results['train']['price_metric'], axis=0)
+        t_emissions_metric = np.stack(results['train']['emission_metric'], axis=0)
+        e_price_metric = np.stack(results['eval']['price_metric'], axis=0)
+        e_emissions_metric = np.stack(results['eval']['emission_metric'], axis=0)
+
+        fig = plt.figure(figsize=(10, 15), num='Difference', constrained_layout=True)
+        axs = fig.subplots(1,2)
+
+        for ax in axs:
+            ax.minorticks_on()
+            ax.grid(True, which='both', axis='both', alpha=0.5)
+        
+        axs[0].plot(e_price_metric, label='Evaluation')
+        axs[0].plot(t_price_metric, label='Training')
+        axs[0].set_title('Price')
+        axs[0].set_xlabel('Epoch')
+        axs[0].set_ylabel('$')
+        axs[0].legend()
+
+        plt.grid()
+
+        axs[1].plot(t_emissions_metric, label='Training')
+        axs[1].plot(e_emissions_metric, label='Evaluation')
+        axs[1].set_title('Emissions')
+        axs[1].set_xlabel('Epoch')
+        axs[1].set_ylabel('kgCO2')
+        axs[1].legend()
 
     for ix_house in range(n_houses):
 
@@ -141,13 +174,8 @@ def plot_results(env, states, rewards, actions, net_energy, title, save=False, f
         axs[4][1].plot(emission, label='Emission factor')
         axs[4][1].set_title('Price and Emission factor')
         axs[4][1].legend(fontsize='xx-small')
-    
-        # fig.suptitle(title)
-        # fig.tight_layout()
 
         if save:
-            fig.savefig(f'{filename}_{house_name}', dpi=300)
+            fig.savefig(f'{filename}_{house_name}.png', dpi=300)
 
-    # plt.tight_layout()
-    plt.grid()
     plt.show()

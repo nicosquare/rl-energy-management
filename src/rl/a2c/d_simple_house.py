@@ -335,7 +335,18 @@ class Agent:
 
                 self.wdb_logger.save_model()
 
-        return all_states, all_rewards, all_actions, all_net_energy
+        # Return results dictionary
+        
+        return {
+            "training_steps": self.training_steps,
+            "rollout_steps": self.rollout_steps,
+            "train": {
+                "states": all_states,
+                "rewards": all_rewards,
+                "actions": all_actions,
+                "net_energy": all_net_energy
+            },
+        }
 
     # Save weights to file
 
@@ -384,11 +395,11 @@ if __name__ == '__main__':
 
         # Launch the training
 
-        t_states, t_rewards, t_actions, t_net_energy = agent.train()
+        results = agent.train()
 
         # Plot results
 
-        plot_results(env=my_env, states=t_states, actions=t_actions, rewards=t_rewards, net_energy=t_net_energy, title='Microgrid')
+        plot_results(env=my_env, results=results)
 
         # Finish wandb process
 

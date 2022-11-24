@@ -335,9 +335,39 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
+    def evaluate(self):
+
+        # Change environment to evaluation mode
+
+        self.env.change_mode(mode='eval')
+        self.actor.eval()
+        self.critic.eval()
+
+        # Evaluate current model
+
+        with torch.no_grad():
+
+            self.rollout()
+
+        price_metric, emission_metric = self.env.mg.get_houses_metrics()
+
+        # Change environment back to training mode
+
+        self.env.change_mode(mode='train')
+        self.actor.train()
+        self.critic.train()
+
+        return price_metric, emission_metric
+
     def train(self):
 
+        # Rollout registers
+        
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
+
+        # Metrics registers
+
+        train_price_metric, train_emission_metric, eval_price_metric, eval_emission_metric = [], [], [], []
 
         for step in tqdm(range(self.current_step, self.training_steps)):
 
@@ -394,6 +424,20 @@ class Agent:
 
                 traceback.print_exc()
 
+            # Log the metrics
+
+            t_price_metric, t_emission_metric = self.env.mg.get_houses_metrics()
+
+            train_price_metric.append(t_price_metric.mean())
+            train_emission_metric.append(t_emission_metric.mean())
+
+            # Evaluate the model
+
+            e_price_metric, e_emission_metric = self.evaluate()
+
+            eval_price_metric.append(e_price_metric.mean())
+            eval_emission_metric.append(e_emission_metric.mean())
+
             # Check stop condition
 
             stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
@@ -425,7 +469,24 @@ class Agent:
 
                 self.wdb_logger.save_model()
 
-        return all_states, all_rewards, all_actions, all_net_energy
+        # Return results dictionary
+
+        return {
+            "training_steps": self.training_steps,
+            "rollout_steps": self.rollout_steps,
+            "train": {
+                "price_metric": train_price_metric,
+                "emission_metric": train_emission_metric,
+                "states": all_states,
+                "rewards": all_rewards,
+                "actions": all_actions,
+                "net_energy": all_net_energy
+            },
+            "eval": {
+                "price_metric": eval_price_metric,
+                "emission_metric": eval_emission_metric
+            },
+        }
 
     # Save weights to file
 
@@ -475,11 +536,11 @@ if __name__ == '__main__':
 
         # Launch the training
 
-        t_states, t_rewards, t_actions, t_net_energy = agent.train()
+        results = agent.train()
 
         # Plot results
 
-        plot_results(env=my_env, states=t_states, actions=t_actions, rewards=t_rewards, net_energy=t_net_energy, title='Microgrid')
+        plot_results(env=my_env, results=results)
         
         # Finish wandb process
 

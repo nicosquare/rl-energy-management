@@ -85,20 +85,22 @@ class SyntheticHouse():
         # Generate data
 
         # Solar Generation
-        pv_base, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
+
+        _, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
 
         # Demand Profile
+
         if self.profile == 'family':
-            base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+            _, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
         elif self.profile == 'business':
-            base, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
+            _, self.demand = self.demand_home_business(min_noise=min_noise_demand, max_noise=max_noise_demand)
         elif self.profile == 'teenagers':
-            base, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
+            _, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
         else:
-            base, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
+            _, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
         
-            # Grid electric production
-        nuclear_gen, gas_gen, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
+        # Grid electric production
+        _, _, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
             gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
         )
 
@@ -201,6 +203,43 @@ class SyntheticHouse():
         emission = nuclear_gen * nuclear_emission_factor + gas_gen * gas_emission_factor
 
         return nuclear_gen, gas_gen, total_gen, price, emission
+
+    def compute_metrics(self):
+
+        remaining_energy_to_step = self.remaining_energy[:self.current_step]
+
+        # Compute battery performance
+
+        price_without_battery = np.where(
+            remaining_energy_to_step > 0,
+            remaining_energy_to_step * self.price,
+            remaining_energy_to_step * self.price * self.grid_sell_rate
+        ).sum()
+
+        price_with_battery = np.where(
+            self.net_energy > 0,
+            self.net_energy * self.price,
+            self.net_energy * self.price * self.grid_sell_rate
+        ).sum(axis=1).mean()
+
+        emission_without_battery = np.where(
+            remaining_energy_to_step > 0,
+            remaining_energy_to_step * self.emission,
+            0
+        ).sum()
+
+        emission_with_battery = np.where(
+            self.net_energy > 0,
+            self.net_energy * self.emission,
+            0
+        ).sum(axis=1).mean()
+
+        # Compute metrics, we add a baseline of one to indicate when the battery didn't cause any improvement
+
+        price_metric = price_with_battery - price_without_battery
+        emission_metric = emission_with_battery - emission_without_battery
+
+        return price_metric, emission_metric
 
     def observe(self) -> np.ndarray:
 

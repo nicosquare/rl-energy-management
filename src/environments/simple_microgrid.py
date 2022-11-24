@@ -23,10 +23,23 @@ class SimpleMicrogrid(Env):
             1 soc: [0,1]
         
         """
+
+        # Set up microgrid
+
+        self.mg = SyntheticMicrogrid(config=config)
+
         # Get params from yaml config file
         self.batch_size = config['batch_size']
         self.encoding = config['encoding']
-        self.n_houses = len(config['houses'])
+
+        # Build a multibatch house attr array
+
+        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], self.batch_size, axis=1)
+        self.house_attr_size = self.houses_attr.shape[2]
+
+        self.n_houses = len(self.mg.houses)
+
+        # Define environment characteristics
 
         low_limit_obs = np.float32(np.array([0.0, 0.0]))
         high_limit_obs = np.float32(np.array([23.0, 1.0]))
@@ -63,13 +76,6 @@ class SimpleMicrogrid(Env):
             shape=low_limit_action.shape,
             dtype=np.float32
         )
-
-        self.mg = SyntheticMicrogrid(config=config)
-
-        # Build a multibatch house attr array
-
-        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], self.batch_size, axis=1)
-        self.house_attr_size = self.houses_attr.shape[2]
 
     def observe(self):
         return self.normalize_obs(self.mg.observe())
@@ -116,3 +122,15 @@ class SimpleMicrogrid(Env):
             encoded_obs = obs
 
         return encoded_obs
+
+    def change_mode(self, mode: str):
+
+        self.mg.change_mode(mode)
+        
+        # Update houses related information
+
+        self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], self.batch_size, axis=1)
+        self.house_attr_size = self.houses_attr.shape[2]
+
+        self.n_houses = len(self.mg.houses)
+        

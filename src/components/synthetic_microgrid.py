@@ -6,7 +6,7 @@ from src.components.synthetic_house import SyntheticHouse
 class SyntheticMicrogrid():
     
     def __init__(
-        self, config
+        self, config,
     ):
         
         self.batch_size = config['batch_size']
@@ -14,6 +14,7 @@ class SyntheticMicrogrid():
         self.peak_grid_gen = config['peak_grid_gen']
         self.grid_sell_rate = config['grid_sell_rate']
         self.disable_noise = config['disable_noise']
+        self.houses_config = config['houses']
 
         # Time variables
 
@@ -26,37 +27,42 @@ class SyntheticMicrogrid():
         self.max_temp = config['max_temp']
         self.temp = np.random.uniform(self.min_temp, self.max_temp, self.steps)
 
-        # Houses
+        # Houses, by default they are loaded in train mode
         
-        self.houses = self.house_loader(config["houses"])
+        self.houses = self.house_loader(mode='train')
 
     @property
     def net_energy(self):
         return np.stack([house.net_energy for house in self.houses])
 
-    def house_loader(self, config) -> List[SyntheticHouse]:
+    def house_loader(self, mode : str = 'train') -> List[SyntheticHouse]:
 
         houses = []
+        mode_config = self.houses_config[mode]
 
-        for _, attr in zip(config, config.values()):
+        for _, attr in zip(mode_config, mode_config.values()):
 
-            config = attr
+            house_config = attr
 
             # Append necessary information for SyntheticHouse class
 
-            config['batch_size'] = self.batch_size
-            config['rollout_steps'] = self.steps
-            config['peak_grid_gen'] = self.peak_grid_gen
-            config['grid_sell_rate'] = self.grid_sell_rate
-            config['disable_noise'] = self.disable_noise
-            config['min_temp'] = self.min_temp
-            config['max_temp'] = self.max_temp
+            house_config['batch_size'] = self.batch_size
+            house_config['rollout_steps'] = self.steps
+            house_config['peak_grid_gen'] = self.peak_grid_gen
+            house_config['grid_sell_rate'] = self.grid_sell_rate
+            house_config['disable_noise'] = self.disable_noise
+            house_config['min_temp'] = self.min_temp
+            house_config['max_temp'] = self.max_temp
 
             # Create each house instance
 
-            houses.append(SyntheticHouse(config=config))
+            houses.append(SyntheticHouse(config=house_config))
         
         return houses
+
+    def change_mode(self, mode: str):
+        
+        self.houses = self.house_loader(mode=mode)
 
     def observe(self) -> np.ndarray:
 
@@ -79,6 +85,14 @@ class SyntheticMicrogrid():
         self.increment_step()
 
         return np.stack(next_state, axis=0), np.stack(reward, axis=0)
+
+    def get_houses_metrics(self) -> np.ndarray:
+
+        perf = np.stack([house.compute_metrics() for house in self.houses], axis=0)
+        price_perf = perf[:,0]
+        emissions_perf = perf[:,1]
+
+        return price_perf, emissions_perf
 
     def get_houses_attrs(self) -> np.ndarray:
 
