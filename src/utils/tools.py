@@ -20,8 +20,46 @@ def load_config(config_name):
         config = yaml.safe_load(file)
     return config
 
+def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
+    
+    # Parse metrics
 
-def plot_results(env, results, save : bool = False, filename: str ="results.png"):
+    t_price_metric = np.stack(metrics['train']['price_metric'], axis=0)
+    e_price_metric = np.stack(metrics['eval']['price_metric'], axis=0)
+    tst_price_metric = np.stack(metrics['test']['price_metric'], axis=0)
+    t_emissions_metric = np.stack(metrics['train']['emission_metric'], axis=0)
+    e_emissions_metric = np.stack(metrics['eval']['emission_metric'], axis=0)
+    tst_emissions_metric = np.stack(metrics['test']['emission_metric'], axis=0)
+
+    fig = plt.figure(figsize=(10, 15), num='Difference', constrained_layout=True)
+    axs = fig.subplots(1,2)
+
+    for ax in axs:
+        ax.minorticks_on()
+        ax.grid(True, which='both', axis='both', alpha=0.5)
+    
+    axs[0].plot(t_price_metric, label='Training')
+    axs[0].plot(e_price_metric, label='Evaluation')
+    axs[0].plot(tst_price_metric, label='Testing')
+    axs[0].set_title('Price')
+    axs[0].set_xlabel('Epoch')
+    axs[0].set_ylabel('$')
+    axs[0].legend()
+
+    axs[1].plot(t_emissions_metric, label='Training')
+    axs[1].plot(e_emissions_metric, label='Evaluation')
+    axs[1].plot(tst_emissions_metric, label='Testing')
+    axs[1].set_title('Emissions')
+    axs[1].set_xlabel('Epoch')
+    axs[1].set_ylabel('kgCO2')
+    axs[1].legend()
+
+    if save:
+        fig.savefig(f'{filename}.png', dpi=300)
+
+    plt.show()
+
+def plot_rollout(env, results, save : bool = False, filename: str ="results"):
     
     # Get epochs checkpoint indexes
 
@@ -48,38 +86,6 @@ def plot_results(env, results, save : bool = False, filename: str ="results.png"
         single_house = False
         n_houses = env.n_houses
         all_socs = states[:,:,:,:,-1]
-
-    # Parse metrics
-
-    if not single_house:
-
-        t_price_metric = np.stack(results['train']['price_metric'], axis=0)
-        t_emissions_metric = np.stack(results['train']['emission_metric'], axis=0)
-        e_price_metric = np.stack(results['eval']['price_metric'], axis=0)
-        e_emissions_metric = np.stack(results['eval']['emission_metric'], axis=0)
-
-        fig = plt.figure(figsize=(10, 15), num='Difference', constrained_layout=True)
-        axs = fig.subplots(1,2)
-
-        for ax in axs:
-            ax.minorticks_on()
-            ax.grid(True, which='both', axis='both', alpha=0.5)
-        
-        axs[0].plot(e_price_metric, label='Evaluation')
-        axs[0].plot(t_price_metric, label='Training')
-        axs[0].set_title('Price')
-        axs[0].set_xlabel('Epoch')
-        axs[0].set_ylabel('$')
-        axs[0].legend()
-
-        plt.grid()
-
-        axs[1].plot(t_emissions_metric, label='Training')
-        axs[1].plot(e_emissions_metric, label='Evaluation')
-        axs[1].set_title('Emissions')
-        axs[1].set_xlabel('Epoch')
-        axs[1].set_ylabel('kgCO2')
-        axs[1].legend()
 
     for ix_house in range(n_houses):
 

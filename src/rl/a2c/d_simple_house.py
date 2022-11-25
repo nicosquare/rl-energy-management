@@ -21,7 +21,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_house import SimpleHouse
 
-from src.utils.tools import set_all_seeds, load_config, plot_results
+from src.utils.tools import set_all_seeds, load_config, plot_rollout
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -399,7 +399,7 @@ if __name__ == '__main__':
 
         # Plot results
 
-        plot_results(env=my_env, results=results)
+        plot_rollout(env=my_env, results=results)
 
         # Finish wandb process
 

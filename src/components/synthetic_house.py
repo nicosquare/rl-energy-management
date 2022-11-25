@@ -54,16 +54,16 @@ class SyntheticHouse():
         self.attr = np.zeros(len(self.profile_types))
         self.attr[self.profile_types.index(config['profile']['type'])] = 1
 
-        self.attr = np.insert(self.attr, self.attr.shape[0], [
-            config['profile']['peak_load'],
-            config['battery']['capacity'],
-            config['battery']['efficiency'],
+        # self.attr = np.insert(self.attr, self.attr.shape[0], [
+        #     config['profile']['peak_load'],
+        #     config['battery']['capacity'],
+            # config['battery']['efficiency'],
             # config['battery']['soc_max'],
             # config['battery']['soc_min'],
             # config['battery']['p_charge_max'],
             # config['battery']['p_discharge_max'],
-            config['pv']['peak_pv_gen'],
-        ])
+        #     config['pv']['peak_pv_gen'],
+        # ])
 
         # Generate data
 

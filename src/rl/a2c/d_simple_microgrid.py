@@ -21,7 +21,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
-from src.utils.tools import set_all_seeds, load_config, plot_results
+from src.utils.tools import set_all_seeds, load_config, plot_rollout, plot_metrics
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -32,42 +32,42 @@ ZERO = 1e-5
     Agent definitions
 '''
 
-# class Actor(Module):
+class Actor(Module):
 
-#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
 
-#         super(Actor, self).__init__()
+        super(Actor, self).__init__()
 
-#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
-#         self.output = Linear(hidden_dim, act_dim)
+        self.input = Linear(obs_dim + attr_dim, hidden_dim)
+        self.output = Linear(hidden_dim, act_dim)
 
-#     def forward(self, obs, attr):
+    def forward(self, obs, attr):
 
-#         input = torch.cat([attr, obs], dim=2)
-#         input = F.relu(self.input(input))
+        input = torch.cat([attr, obs], dim=2)
+        input = F.relu(self.input(input))
 
-#         output = F.softmax(self.output(input), dim=2)
+        output = F.softmax(self.output(input), dim=2)
 
-#         return output
+        return output
 
-# class Critic(Module):
+class Critic(Module):
 
-#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
+    def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
 
-#         super(Critic, self).__init__()
+        super(Critic, self).__init__()
 
-#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
-#         self.output = Linear(hidden_dim, 1)
+        self.input = Linear(obs_dim + attr_dim, hidden_dim)
+        self.output = Linear(hidden_dim, 1)
 
-#     def forward(self, obs, attr):
+    def forward(self, obs, attr):
 
-#         input = torch.cat([attr, obs], dim=3)
+        input = torch.cat([attr, obs], dim=3)
 
-#         output = F.relu(self.input(input))
+        output = F.relu(self.input(input))
 
-#         output = self.output(output)
+        output = self.output(output)
 
-#         return output
+        return output
 
 # class Actor(Module):
 
@@ -117,40 +117,40 @@ ZERO = 1e-5
 
 #         return output
 
-class Actor(Module):
+# class Actor(Module):
 
-    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
 
-        super(Actor, self).__init__()
+#         super(Actor, self).__init__()
 
-        self.obs_input = Linear(obs_dim, hidden_dim)
+#         self.obs_input = Linear(obs_dim, hidden_dim)
         
-        self.output = Linear(hidden_dim, act_dim)
+#         self.output = Linear(hidden_dim, act_dim)
 
-    def forward(self, obs, attr):
+#     def forward(self, obs, attr):
 
-        obs = F.relu(self.obs_input(obs))
+#         obs = F.relu(self.obs_input(obs))
         
-        output = F.softmax(self.output(obs), dim=2)
+#         output = F.softmax(self.output(obs), dim=2)
 
-        return output
+#         return output
 
-class Critic(Module):
+# class Critic(Module):
 
-    def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
+#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
 
-        super(Critic, self).__init__()
+#         super(Critic, self).__init__()
 
-        self.input_obs = Linear(obs_dim, hidden_dim)
+#         self.input_obs = Linear(obs_dim, hidden_dim)
         
-        self.output = Linear(hidden_dim, 1)
+#         self.output = Linear(hidden_dim, 1)
 
-    def forward(self, obs, attr):
+#     def forward(self, obs, attr):
 
-        obs = F.relu(self.input_obs(obs))
-        output = self.output(obs)
+#         obs = F.relu(self.input_obs(obs))
+#         output = self.output(obs)
 
-        return output
+#         return output
 
 class Agent:
 
@@ -335,11 +335,11 @@ class Agent:
 
         return states, rewards, log_probs, actions_hist
 
-    def evaluate(self):
+    def check_model(self, mode: str = 'eval'):
 
         # Change environment to evaluation mode
 
-        self.env.change_mode(mode='eval')
+        self.env.change_mode(mode=mode)
         self.actor.eval()
         self.critic.eval()
 
@@ -433,7 +433,7 @@ class Agent:
 
             # Evaluate the model
 
-            e_price_metric, e_emission_metric = self.evaluate()
+            e_price_metric, e_emission_metric = self.check_model()
 
             eval_price_metric.append(e_price_metric.mean())
             eval_emission_metric.append(e_emission_metric.mean())
@@ -488,6 +488,24 @@ class Agent:
             },
         }
 
+    def test(self):
+
+        test_price_metric, test_emission_metric = [], []
+
+        for step in tqdm(range(self.current_step, self.training_steps)):
+
+            # Evaluate the model
+
+            e_price_metric, e_emission_metric = self.check_model(mode='test')
+
+            test_price_metric.append(e_price_metric.mean())
+            test_emission_metric.append(e_emission_metric.mean())
+            
+        return {
+            "price_metric": test_price_metric,
+            "emission_metric": test_emission_metric
+        }
+
     # Save weights to file
 
     def save_weights(self, actor_state_dict, actor_opt_state_dict, critic_state_dict, critic_opt_state_dict, current_step):
@@ -538,9 +556,15 @@ if __name__ == '__main__':
 
         results = agent.train()
 
-        # Plot results
+        # Check the final model with the test dataset and retrieve metrics
 
-        plot_results(env=my_env, results=results)
+        results['test'] = agent.test()
+
+        # Make plots
+
+        plot_metrics(metrics=results)
+
+        # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
 
