@@ -341,10 +341,12 @@ class Agent:
             "training_steps": self.training_steps,
             "rollout_steps": self.rollout_steps,
             "train": {
-                "states": all_states,
-                "rewards": all_rewards,
-                "actions": all_actions,
-                "net_energy": all_net_energy
+                "agent":{
+                    "states": all_states,
+                    "rewards": all_rewards,
+                    "actions": all_actions,
+                    "net_energy": all_net_energy
+                },
             },
         }
 

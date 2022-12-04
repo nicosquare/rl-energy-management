@@ -100,31 +100,8 @@ def loop_env(env: SimpleMicrogrid, action_values: np.ndarray, mode : str = 'trai
 
 if __name__ == '__main__':
     try:
-
+        # Create environment
         set_all_seeds(0)
-        # create environment,m save array of houses
-        config = load_config("zero_mg")
-        env = SimpleMicrogrid(config=config['env'])
-
-        # Train
-        mode = 'train'
-        rewards, battery_values, action_values = get_all_actions(env, mode)
-        train_metrics = loop_env(env, action_values, mode)
-        print('train ', rewards[0].mean())
-        print('train ', train_metrics)
-
-        # Eval
-        mode = 'eval'
-        rewards, battery_values, action_values = get_all_actions(env, mode)
-        eval_metrics = loop_env(env, action_values, mode)
-        print('Eval ', rewards[0].mean())
-        print('eval ', eval_metrics)
-
-        # Test
-        mode = 'test'
-        rewards, battery_values, action_values = get_all_actions(env, mode)
-        test_metrics = loop_env(env, action_values, mode)
-        print('Test ', rewards[0].mean())
 
         # AGENT
         model = "d_a2c_mg"
@@ -133,10 +110,50 @@ if __name__ == '__main__':
         my_env = SimpleMicrogrid(config=config['env'])
 
         agent = Agent(env=my_env, config = config)
-        results_ag = agent.train()
-        results_ag['test'] = agent.test()
+        metrics = agent.train()
+        metrics['test'] = agent.test()
 
-        plot_metrics(metrics=results_ag)
+        # CVXPY
+        config = load_config("zero_mg")
+        env = SimpleMicrogrid(config=config['env'])
+
+        # Train
+        mode = 'train'
+            # Calculate best actionjs
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+            # Apply actions to environment
+        train_metrics = loop_env(env, action_values, mode)
+            # Create empty dictionary 
+        metrics['train']['cvxpy'] = {}
+            # Create a list of same metric so it appears as a line in the graph 
+        metrics['train']['cvxpy']['price_metric'] = [train_metrics[0].mean() for _ in range(agent.training_steps)]
+        metrics['train']['cvxpy']['emission_metric'] = [train_metrics[1].mean() for _ in range(agent.training_steps)]
+        # print('train ', rewards[0].mean())
+        # print('train ', train_metrics)
+
+
+        # Eval
+        mode = 'eval'
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+        eval_metrics = loop_env(env, action_values, mode)
+            # Create empty dictionary 
+        metrics['eval']['cvxpy'] = {}
+        metrics['eval']['cvxpy']['price_metric'] =  [eval_metrics[0].mean() for _ in range(agent.training_steps)]
+        metrics['eval']['cvxpy']['emission_metric'] = [eval_metrics[1].mean() for _ in range(agent.training_steps)]
+        # print('Eval ', rewards[0].mean())
+        # print('eval ', eval_metrics)
+
+        # Test
+        mode = 'test'
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+        test_metrics = loop_env(env, action_values, mode)
+
+        # Create empty dictionary 
+        metrics['test']['cvxpy'] = {}
+        metrics['test']['cvxpy']['price_metric'] = [test_metrics[0].mean() for _ in range(agent.training_steps)]
+        metrics['test']['cvxpy']['emission_metric'] = [test_metrics[1].mean() for _ in range(agent.training_steps)]
+
+        plot_metrics(metrics=metrics, save=True)
 
         agent.wdb_logger.finish()
 

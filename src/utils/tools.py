@@ -1,11 +1,10 @@
 import yaml
 import numpy as np
 import torch
-from os import path
+from os import path, getcwd
 from matplotlib import pyplot as plt
 
 CONFIG_PATH = "config/"
-
 def set_all_seeds(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -24,12 +23,12 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     
     # Parse metrics
 
-    t_price_metric = np.stack(metrics['train']['price_metric'], axis=0)
-    e_price_metric = np.stack(metrics['eval']['price_metric'], axis=0)
-    tst_price_metric = np.stack(metrics['test']['price_metric'], axis=0)
-    t_emissions_metric = np.stack(metrics['train']['emission_metric'], axis=0)
-    e_emissions_metric = np.stack(metrics['eval']['emission_metric'], axis=0)
-    tst_emissions_metric = np.stack(metrics['test']['emission_metric'], axis=0)
+    t_price_metric = np.stack(metrics['train']['agent']['price_metric'], axis=0)
+    e_price_metric = np.stack(metrics['eval']['agent']['price_metric'], axis=0)
+    tst_price_metric = np.stack(metrics['test']['agent']['price_metric'], axis=0)
+    t_emissions_metric = np.stack(metrics['train']['agent']['emission_metric'], axis=0)
+    e_emissions_metric = np.stack(metrics['eval']['agent']['emission_metric'], axis=0)
+    tst_emissions_metric = np.stack(metrics['test']['agent']['emission_metric'], axis=0)
 
     fig = plt.figure(figsize=(10, 15), num='Difference', constrained_layout=True)
     axs = fig.subplots(1,2)
@@ -44,7 +43,6 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     axs[0].set_title('Price')
     axs[0].set_xlabel('Epoch')
     axs[0].set_ylabel('$')
-    axs[0].legend()
 
     axs[1].plot(t_emissions_metric, label='Training')
     axs[1].plot(e_emissions_metric, label='Evaluation')
@@ -52,6 +50,32 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     axs[1].set_title('Emissions')
     axs[1].set_xlabel('Epoch')
     axs[1].set_ylabel('kgCO2')
+
+    # Review if cvxpy metrics are available
+    
+    if 'cvxpy' in metrics['train']:
+        t_cvxpy_price_metric = np.stack(metrics['train']['cvxpy']['price_metric'], axis=0)
+        t_cvxpy_emissions_metric = np.stack(metrics['train']['cvxpy']['emission_metric'], axis=0)
+
+        axs[0].plot(t_cvxpy_price_metric, label='CVXPY Training')
+        axs[1].plot(t_cvxpy_emissions_metric, label='CVXPY Training')
+
+    if 'cvxpy' in metrics['eval']:
+        e_cvxpy_price_metric = np.stack(metrics['eval']['cvxpy']['price_metric'], axis=0)
+        e_cvxpy_emissions_metric = np.stack(metrics['eval']['cvxpy']['emission_metric'], axis=0)
+
+        axs[0].plot(e_cvxpy_price_metric, label='CVXPY Evaluation')
+        axs[1].plot(e_cvxpy_emissions_metric, label='CVXPY Evaluation')
+
+    if 'cvxpy' in metrics['test']:
+        tst_cvxpy_price_metric = np.stack(metrics['test']['cvxpy']['price_metric'], axis=0)
+        tst_cvxpy_emissions_metric = np.stack(metrics['test']['cvxpy']['emission_metric'], axis=0)
+
+        axs[0].plot(tst_cvxpy_price_metric, label='CVXPY Testing')
+        axs[1].plot(tst_cvxpy_emissions_metric, label='CVXPY Testing')
+    
+
+    axs[0].legend()
     axs[1].legend()
 
     if save:
@@ -71,10 +95,10 @@ def plot_rollout(env, results, save : bool = False, filename: str ="results"):
 
     # Parse training data
 
-    rewards = np.stack(results['train']['rewards'], axis=0)
-    actions = np.stack(results['train']['actions'], axis=0)
-    states = np.stack(results['train']['states'], axis=0)
-    net_energy = np.stack(results['train']['net_energy'], axis=0)
+    rewards = np.stack(results['train']['agent']['rewards'], axis=0)
+    actions = np.stack(results['train']['agent']['actions'], axis=0)
+    states = np.stack(results['train']['agent']['states'], axis=0)
+    net_energy = np.stack(results['train']['agent']['net_energy'], axis=0)
 
     # Custom configuration depending on the experiment setup (number of houses/actions)
 
