@@ -1,0 +1,145 @@
+import cvxpy
+import traceback
+import numpy as np
+from matplotlib import pyplot as plt
+
+from src.components.synthetic_house import SyntheticHouse
+from src.components.synthetic_microgrid import SyntheticMicrogrid
+from src.environments.simple_microgrid import SimpleMicrogrid
+from src.rl.a2c.d_simple_microgrid import Agent
+from src.components.battery import Battery, BatteryParameters
+from src.utils.tools import set_all_seeds, load_config, plot_metrics
+
+def solver(house: SyntheticHouse, n: int = 24):
+
+    battery = cvxpy.Variable(n+1)
+    action = cvxpy.Variable(n)
+    consumption = cvxpy.Variable(n)
+
+    constraints = []
+
+    # Battery
+        # Starts in 0.1
+    constraints.append(battery[0] == house.battery.soc_min)
+        # Max and min batteries
+    for i in range(n+1):
+        constraints.append(battery[i] <= house.battery.soc_max)
+        constraints.append(battery[i] >= house.battery.soc_min)
+
+
+    # Action / Batteryn't
+
+    for i in range(n):
+        constraints.append(action[i] <= 1)
+        constraints.append(action[i] >= -1)
+
+
+    # Transition
+    obj = 0
+
+    for i in range(n):
+        
+        constraints.append(action[i] <= house.battery.p_charge_max)
+        constraints.append(action[i] <= house.battery.p_discharge_max)
+        # Update battery
+        constraints.append(battery[i+1] == battery[i] + action[i] * house.battery.efficiency)
+        # Update net 
+        constraints.append(consumption[i] == house.demand[i]-house.pv_gen[i] + action[i] * house.battery.efficiency)
+
+
+        obj += cvxpy.maximum(consumption[i] * (house.price[i] + house.emission[i]),0) 
+        obj += cvxpy.maximum(-consumption[i] * house.price[i] * house.grid_sell_rate,0)  
+
+
+    objective = cvxpy.Minimize(obj)
+    prob = cvxpy.Problem(objective, constraints)
+    res = prob.solve()
+
+    return res, battery.value, action.value
+
+def get_all_actions(env: SimpleMicrogrid, mode : str = 'train') -> np.ndarray:
+    # Set mode, train, eval, test
+    env.mg.change_mode(mode)
+
+    # Create arrays to hold score, battery SOC and Action for all houses
+    rewards, battery_values, action_values = [],[],[]
+    
+    # Same for all houses
+    for house in env.mg.houses:
+        reward, batt, action = solver(house)
+        
+        rewards.append(reward)
+        battery_values.append(batt)
+        action_values.append(action)
+    battery_values = np.array(battery_values)
+    action_values = np.array(action_values)
+    rewards = np.array(rewards)
+
+    return rewards, battery_values, action_values
+    # print("Mean", scores.mean(), "\n Scores",rewards)    
+
+def loop_env(env: SimpleMicrogrid, action_values: np.ndarray, mode : str = 'train') -> np.ndarray:
+    done = 0
+    env.mg.change_mode(mode)
+
+    env.reset()
+
+    # Cycle the entire episode with already computed actions by solver
+    while not done:
+        time_step = env.mg.current_step
+        _,_,done,_ = env.step(action_values[:,time_step])
+        time_step += 1
+
+    # Calculate Score with actions
+    return env.mg.get_houses_metrics() # output price, emissions 
+
+
+"""
+    Main method definition
+"""
+
+if __name__ == '__main__':
+    try:
+
+        set_all_seeds(0)
+        # create environment,m save array of houses
+        config = load_config("zero_mg")
+        env = SimpleMicrogrid(config=config['env'])
+
+        # Train
+        mode = 'train'
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+        train_metrics = loop_env(env, action_values, mode)
+        print('train ', rewards[0].mean())
+        print('train ', train_metrics)
+
+        # Eval
+        mode = 'eval'
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+        eval_metrics = loop_env(env, action_values, mode)
+        print('Eval ', rewards[0].mean())
+        print('eval ', eval_metrics)
+
+        # Test
+        mode = 'test'
+        rewards, battery_values, action_values = get_all_actions(env, mode)
+        test_metrics = loop_env(env, action_values, mode)
+        print('Test ', rewards[0].mean())
+
+        # AGENT
+        model = "d_a2c_mg"
+        config = load_config(model)
+        config = config['train']
+        my_env = SimpleMicrogrid(config=config['env'])
+
+        agent = Agent(env=my_env, config = config)
+        results_ag = agent.train()
+        results_ag['test'] = agent.test()
+
+        plot_metrics(metrics=results_ag)
+
+        agent.wdb_logger.finish()
+
+    except (RuntimeError, KeyboardInterrupt):
+
+        traceback.print_exc()
