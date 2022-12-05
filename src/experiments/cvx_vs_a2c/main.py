@@ -2,7 +2,7 @@ import cvxpy
 import traceback
 import numpy as np
 from matplotlib import pyplot as plt
-
+from datetime import datetime
 from src.components.synthetic_house import SyntheticHouse
 from src.components.synthetic_microgrid import SyntheticMicrogrid
 from src.environments.simple_microgrid import SimpleMicrogrid
@@ -57,7 +57,7 @@ def solver(house: SyntheticHouse, n: int = 24):
 
     return res, battery.value, action.value
 
-def get_all_actions(env: SimpleMicrogrid, mode : str = 'train') -> np.ndarray:
+def get_all_actions(env: SimpleMicrogrid, mode : str = 'train', n : int = 24) -> np.ndarray:
     # Set mode, train, eval, test
     env.mg.change_mode(mode)
 
@@ -66,7 +66,7 @@ def get_all_actions(env: SimpleMicrogrid, mode : str = 'train') -> np.ndarray:
     
     # Same for all houses
     for house in env.mg.houses:
-        reward, batt, action = solver(house)
+        reward, batt, action = solver(house, n)
         
         rewards.append(reward)
         battery_values.append(batt)
@@ -107,11 +107,13 @@ if __name__ == '__main__':
         model = "d_a2c_mg"
         config = load_config(model)
         config = config['train']
+        n = config['env']['rollout_steps']
         my_env = SimpleMicrogrid(config=config['env'])
 
         agent = Agent(env=my_env, config = config)
         metrics = agent.train()
         metrics['test'] = agent.test()
+
 
         # CVXPY
         config = load_config("zero_mg")
@@ -120,7 +122,7 @@ if __name__ == '__main__':
         # Train
         mode = 'train'
             # Calculate best actionjs
-        rewards, battery_values, action_values = get_all_actions(env, mode)
+        rewards, battery_values, action_values = get_all_actions(env, mode, n)
             # Apply actions to environment
         train_metrics = loop_env(env, action_values, mode)
             # Create empty dictionary 
@@ -128,13 +130,13 @@ if __name__ == '__main__':
             # Create a list of same metric so it appears as a line in the graph 
         metrics['train']['cvxpy']['price_metric'] = [train_metrics[0].mean() for _ in range(agent.training_steps)]
         metrics['train']['cvxpy']['emission_metric'] = [train_metrics[1].mean() for _ in range(agent.training_steps)]
-        # print('train ', rewards[0].mean())
+        # print('train ', rewards[0].me an())
         # print('train ', train_metrics)
 
 
         # Eval
         mode = 'eval'
-        rewards, battery_values, action_values = get_all_actions(env, mode)
+        rewards, battery_values, action_values = get_all_actions(env, mode, n)
         eval_metrics = loop_env(env, action_values, mode)
             # Create empty dictionary 
         metrics['eval']['cvxpy'] = {}
@@ -145,7 +147,7 @@ if __name__ == '__main__':
 
         # Test
         mode = 'test'
-        rewards, battery_values, action_values = get_all_actions(env, mode)
+        rewards, battery_values, action_values = get_all_actions(env, mode, n)
         test_metrics = loop_env(env, action_values, mode)
 
         # Create empty dictionary 
@@ -153,7 +155,9 @@ if __name__ == '__main__':
         metrics['test']['cvxpy']['price_metric'] = [test_metrics[0].mean() for _ in range(agent.training_steps)]
         metrics['test']['cvxpy']['emission_metric'] = [test_metrics[1].mean() for _ in range(agent.training_steps)]
 
-        plot_metrics(metrics=metrics, save=True)
+        
+        filename = "metrics_" + datetime.today().strftime("%H_%M_%S__%d_%m_%Y")
+        plot_metrics(metrics=metrics, save=True, filename=filename)
 
         agent.wdb_logger.finish()
 
