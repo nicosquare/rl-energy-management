@@ -475,16 +475,20 @@ class Agent:
             "training_steps": self.training_steps,
             "rollout_steps": self.rollout_steps,
             "train": {
-                "price_metric": train_price_metric,
-                "emission_metric": train_emission_metric,
-                "states": all_states,
-                "rewards": all_rewards,
-                "actions": all_actions,
-                "net_energy": all_net_energy
+                "agent":{
+                    "price_metric": train_price_metric,
+                    "emission_metric": train_emission_metric,
+                    "states": all_states,
+                    "rewards": all_rewards,
+                    "actions": all_actions,
+                    "net_energy": all_net_energy
+                },
             },
             "eval": {
-                "price_metric": eval_price_metric,
-                "emission_metric": eval_emission_metric
+                "agent":{
+                    "price_metric": eval_price_metric,
+                    "emission_metric": eval_emission_metric
+                },
             },
         }
 
@@ -501,9 +505,10 @@ class Agent:
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
             
-        return {
-            "price_metric": test_price_metric,
-            "emission_metric": test_emission_metric
+        return { "agent":{
+                "price_metric": test_price_metric,
+                "emission_metric": test_emission_metric
+            },
         }
 
     # Save weights to file
@@ -558,7 +563,7 @@ if __name__ == '__main__':
 
         # Check the final model with the test dataset and retrieve metrics
 
-        results['test'] = agent.test()
+        results['test']['agent'] = agent.test()
 
         # Make plots
 

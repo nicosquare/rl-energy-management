@@ -29,6 +29,7 @@ class SyntheticHouse():
 
         self.min_temp = config['min_temp']
         self.max_temp = config['max_temp']
+        #TODO change random generation to match hour/env factors
         self.temp = np.random.uniform(self.min_temp, self.max_temp, self.steps)
 
         # Microgrid data
@@ -142,7 +143,7 @@ class SyntheticHouse():
         # Generate demand
 
         full_base = base + complete_profile
-        demand = full_base + noise + (self.temp - 22) * 0.01
+        demand = full_base + noise + np.abs(self.temp - 22) * 0.01
 
         return full_base, demand
 
