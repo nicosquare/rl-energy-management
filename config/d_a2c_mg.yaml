@@ -13,19 +13,41 @@ train:
   env:
     batch_size: 32
     rollout_steps: 24
-    training_steps: 2000
+    training_steps: 9000
     central_agent: False
     disable_noise: True
     encoding: True
-    peak_grid_gen: 1
-    grid_sell_rate: 0.25
-    gas_price: 0.5
-    nuclear_price: 0.1
-    gas_emission_factor: 0.9
-    nuclear_emission_factor: 0.1
-    nuclear_energy_rate: 0.6
     min_temp: 29
     max_temp: 31
+    grid:
+      profiles:
+        normal:
+          peak_gen: 1
+          sell_rate: 0.25
+          nuclear_energy_rate: 0.6
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.6, 1, 0.6, 0.3, 0.3, 0.3, 0.3, 0.6, 1.0, 0.6, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        nuclear:
+          peak_gen: 1
+          sell_rate: 0.25
+          nuclear_energy_rate: 1
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        gas:
+          peak_gen: 1
+          sell_rate: 0.25
+          nuclear_energy_rate: 0
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     houses:
       train:
         house_1:

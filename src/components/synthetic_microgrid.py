@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Union, List
+from itertools import cycle
 
 from src.components.synthetic_house import SyntheticHouse
 
@@ -11,8 +12,8 @@ class SyntheticMicrogrid():
         
         self.batch_size = config['batch_size']
         self.steps = config['rollout_steps']
-        self.peak_grid_gen = config['peak_grid_gen']
-        self.grid_sell_rate = config['grid_sell_rate']
+        self.grid_profiles = cycle(config['grid']['profiles'].values())
+        self.current_profile = next(self.grid_profiles)
         self.disable_noise = config['disable_noise']
         self.houses_config = config['houses']
 
@@ -48,8 +49,7 @@ class SyntheticMicrogrid():
 
             house_config['batch_size'] = self.batch_size
             house_config['rollout_steps'] = self.steps
-            house_config['peak_grid_gen'] = self.peak_grid_gen
-            house_config['grid_sell_rate'] = self.grid_sell_rate
+            house_config['grid_profile'] = self.current_profile
             house_config['disable_noise'] = self.disable_noise
             house_config['min_temp'] = self.min_temp
             house_config['max_temp'] = self.max_temp
@@ -59,6 +59,13 @@ class SyntheticMicrogrid():
             houses.append(SyntheticHouse(config=house_config))
         
         return houses
+
+    def change_grid_profile(self):
+        
+        self.current_profile = next(self.grid_profiles)
+
+        for house in self.houses:
+            house.change_grid_profile(profile=self.current_profile)
 
     def change_mode(self, mode: str):
         

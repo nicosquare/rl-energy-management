@@ -438,6 +438,12 @@ class Agent:
             eval_price_metric.append(e_price_metric.mean())
             eval_emission_metric.append(e_emission_metric.mean())
 
+            # Rotate grid profile after each episode
+
+            if step != 0 and step % int(self.training_steps/6) == 0:
+
+                self.env.mg.change_grid_profile()
+
             # Check stop condition
 
             stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
@@ -504,8 +510,13 @@ class Agent:
 
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
+
+            if step != 0 and step % int(self.training_steps/6) == 0:
+
+                self.env.mg.change_grid_profile()
             
-        return { "agent":{
+        return { 
+            "agent":{
                 "price_metric": test_price_metric,
                 "emission_metric": test_emission_metric
             },
@@ -563,12 +574,12 @@ if __name__ == '__main__':
 
         # Check the final model with the test dataset and retrieve metrics
 
-        results['test']['agent'] = agent.test()
+        results['test'] = {}
+        results['test'] = agent.test()
 
         # Make plots
 
         # plot_metrics(metrics=results)
-
         plot_rollout(env=my_env, results=results)
         
         # Finish wandb process

@@ -13,10 +13,10 @@ class SyntheticHouse():
         
         self.batch_size = config['batch_size']
         self.steps = config['rollout_steps']
+        self.grid_profile = config['grid_profile']
+        self.grid_sell_rate = self.grid_profile['sell_rate']
         self.peak_pv_gen = config['pv']['peak_pv_gen']
-        self.peak_grid_gen = config['peak_grid_gen']
         self.peak_load = config['profile']['peak_load']
-        self.grid_sell_rate = config['grid_sell_rate']
         self.disable_noise = config['disable_noise']
         self.profile = config['profile']['type']
 
@@ -36,7 +36,6 @@ class SyntheticHouse():
 
         self.pv_gen = None
         self.demand = None
-        self.total_gen = None
         self.remaining_energy = None
         self.net_energy = None
         self.price = None
@@ -101,16 +100,20 @@ class SyntheticHouse():
             _, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
         
         # Grid electric production
-        _, _, self.total_gen, self.price, self.emission = self.grid_price_and_emission(
-            gas_price=0.5, nuclear_price=0.1, gas_emission_factor=0.9, nuclear_emission_factor=0.1
-        )
+        self.price, self.emission = self.grid_price_and_emission()
 
-            # Net energy without battery
+        # Net energy without battery
         self.remaining_energy = self.demand - self.pv_gen
 
         # Net energy starts with remaining energy value as not action has been taken yet
 
         self.net_energy = np.zeros((self.batch_size, self.steps))
+
+    def change_grid_profile(self, profile):
+        
+        self.grid_profile = profile
+        self.grid_sell_rate = self.grid_profile['sell_rate']
+        self.price, self.emission = self.grid_price_and_emission()
 
     def pv_generation(self, min_noise: float = 0, max_noise: float = 0.1):
 
@@ -177,17 +180,20 @@ class SyntheticHouse():
 
         return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
 
-    def grid_price_and_emission(
-        self, nuclear_energy_rate: float = 0.6, nuclear_price: float = 0.1, nuclear_emission_factor: float = 0.01,
-        gas_price: float = 0.3, gas_emission_factor: float = 0.2
-    ):
+    def grid_price_and_emission(self):
+
+        peak_grid_gen = self.grid_profile['peak_gen']
+        nuclear_energy_rate = self.grid_profile['nuclear_energy_rate']
+        nuclear_price = self.grid_profile['nuclear_price']
+        nuclear_emission_factor = self.grid_profile['nuclear_emission_factor']
+        gas_price = self.grid_profile['gas_price']
+        gas_emission_factor = self.grid_profile['gas_emission_factor']
+        gas_profile = np.array(self.grid_profile['gas_profile'])
         
         # Assume a mix between nuclear and gas power plants
 
-        nuclear_gen = np.ones(self.steps) * nuclear_energy_rate * self.peak_grid_gen
-        daily_gas_gen = np.array([
-            0, 0, 0, 0, 0, 0, 0.3, 0.6, 1, 0.6, 0.3, 0.3, 0.3, 0.3, 0.6, 1, 0.6, 0.3, 0, 0, 0, 0, 0, 0
-        ]) * (self.peak_grid_gen - nuclear_gen.max())
+        nuclear_gen = np.ones(self.steps) * nuclear_energy_rate * peak_grid_gen
+        daily_gas_gen = gas_profile * (peak_grid_gen - nuclear_gen[0])
 
         # Generate a complete profile from a daily
 
@@ -196,14 +202,12 @@ class SyntheticHouse():
         if len(gas_gen) < self.steps:
             gas_gen = np.concatenate((gas_gen, daily_gas_gen[:self.steps-len(gas_gen)]))
 
-        total_gen = nuclear_gen + gas_gen
-
         # Compute price and emission
 
         price = nuclear_gen * nuclear_price + gas_gen * gas_price
         emission = nuclear_gen * nuclear_emission_factor + gas_gen * gas_emission_factor
 
-        return nuclear_gen, gas_gen, total_gen, price, emission
+        return price, emission
 
     def compute_metrics(self):
 
