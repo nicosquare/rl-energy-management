@@ -21,7 +21,8 @@ train:
     max_temp: 31
     grid:
       profiles:
-        normal:
+        profile_1:
+          name: 'quiet evening'
           peak_gen: 1
           sell_rate: 0.25
           nuclear_energy_rate: 0.6
@@ -29,25 +30,57 @@ train:
           nuclear_emission_factor: 0.1
           gas_price: 0.5
           gas_emission_factor: 0.9
-          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.6, 1, 0.6, 0.3, 0.3, 0.3, 0.3, 0.6, 1.0, 0.6, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        nuclear:
+          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.6, 1.0, 0.6, 0.3, 0.3, 0.3, 0.3, 0.6, 1.0, 0.6, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        profile_2:
+          name: 'quiet noon'
           peak_gen: 1
           sell_rate: 0.25
+          nuclear_energy_rate: 0.4
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [0.3, 0.3, 0.3, 0.3, 0.6, 0.7, 1.0, 1.0, 0.6, 0.5, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.5, 0.7, 1.0, 1.0, 1.0, 1.0, 0.7, 0.6]
+        profile_3:
+          name: 'active noon'
+          peak_gen: 1
+          sell_rate: 0.25
+          nuclear_energy_rate: 0.4
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.5, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.5, 0.7, 1.0, 1.0, 1.0, 1.0, 0.7, 0.6]
+        profile_4:
+          name: 'nuclear'
+          peak_gen: 1
+          sell_rate: 0.35
           nuclear_energy_rate: 1
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
           gas_price: 0.5
           gas_emission_factor: 0.9
-          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        gas:
+          gas_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        profile_5:
+          name: 'gas'
           peak_gen: 1
-          sell_rate: 0.25
+          sell_rate: 0.15
           nuclear_energy_rate: 0
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
           gas_price: 0.5
           gas_emission_factor: 0.9
-          gas_profile: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+          gas_profile: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        profile_6:
+          name: 'gas mainly'
+          peak_gen: 1
+          sell_rate: 0.15
+          nuclear_energy_rate: 0.2
+          nuclear_price: 0.1
+          nuclear_emission_factor: 0.1
+          gas_price: 0.5
+          gas_emission_factor: 0.9
+          gas_profile: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
     houses:
       train:
         house_1:

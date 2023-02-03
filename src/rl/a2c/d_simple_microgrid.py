@@ -440,7 +440,7 @@ class Agent:
 
             # Rotate grid profile after each episode
 
-            if step != 0 and step % int(self.training_steps/6) == 0:
+            if step != 0 and step % int(self.training_steps/9) == 0:
 
                 self.env.mg.change_grid_profile()
 
@@ -511,7 +511,7 @@ class Agent:
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
 
-            if step != 0 and step % int(self.training_steps/6) == 0:
+            if step != 0 and step % int(self.training_steps/9) == 0:
 
                 self.env.mg.change_grid_profile()
             
