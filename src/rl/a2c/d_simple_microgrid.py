@@ -9,8 +9,10 @@
 import traceback
 import numpy as np
 import torch
-from tqdm import tqdm
+import argparse
+import pickle
 
+from tqdm import tqdm
 from gym import Env
 from torch import Tensor, tensor
 from torch.nn import Module, Linear, MSELoss, Flatten
@@ -21,7 +23,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
-from src.utils.tools import set_all_seeds, load_config, plot_rollout, plot_metrics
+from src.utils.tools import set_all_seeds, load_config#, plot_rollout, plot_metrics
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -543,12 +545,40 @@ class Agent:
     Main method definition
 """
 
+# Read arguments from command line
+
+parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
+
+parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate")
+parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
+parser.add_argument("-ann", "--actor_nn", type=float, help="Actor neurons number")
+parser.add_argument("-cnn", "--critic_nn", type=float, help="Critic neurons number")
+parser.add_argument("-f", "--filename", default="experiment", type=str, help="File name")
+
+args = parser.parse_args()
+
 if __name__ == '__main__':
     model = "d_a2c_mg"
 
     config = load_config(model)
     config = config['train']
     
+    # Get arguments and override config with command line arguments
+
+    filename = args.filename
+
+    if args.actor_lr is not None:
+        config['agent']['actor_lr'] = args.actor_lr
+    
+    if args.critic_lr is not None:
+        config['agent']['critic_lr'] = args.critic_lr
+
+    if args.actor_nn is not None:
+        config['agent']['actor_nn'] = args.actor_nn
+    
+    if args.critic_nn is not None:
+        config['agent']['critic_nn'] = args.critic_nn
+
     # Start wandb logger
 
     try:
@@ -577,10 +607,15 @@ if __name__ == '__main__':
         results['test'] = {}
         results['test'] = agent.test()
 
+        # Save results to pickle file
+
+        with open(f'./results/{model}_{filename}.pkl', 'wb') as f:
+            pickle.dump(results, f)
+
         # Make plots
 
         # plot_metrics(metrics=results)
-        plot_rollout(env=my_env, results=results)
+        # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
 
