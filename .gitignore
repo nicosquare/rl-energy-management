@@ -142,8 +142,8 @@ logs/*
 
 imgs/*
 
+results/*
+
 src/.DS_Store
 
-*cpu*.sh
-
-*gpu*.sh
+cscc*.sh

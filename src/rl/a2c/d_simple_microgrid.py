@@ -371,6 +371,10 @@ class Agent:
 
         train_price_metric, train_emission_metric, eval_price_metric, eval_emission_metric = [], [], [], []
 
+        # Losses history
+
+        actor_loss_hist, critic_loss_hist = [], []
+
         for step in tqdm(range(self.current_step, self.training_steps)):
 
             # Perform rollouts and sample trajectories
@@ -410,6 +414,9 @@ class Agent:
                 actor_loss = - torch.mean(torch.sum(log_probs*(sum_rewards - value.detach()), dim=0))
                 critic_loss = MSELoss()(value, sum_rewards)
 
+                actor_loss_hist.append(actor_loss.item())
+                critic_loss_hist.append(critic_loss.item())
+
                 # Backpropagation to train Actor NN
 
                 self.actor.optimizer.zero_grad()
@@ -442,7 +449,7 @@ class Agent:
 
             # Rotate grid profile after each episode
 
-            if step != 0 and step % int(self.training_steps/9) == 0:
+            if step != 0 and step % 1500 == 0:
 
                 self.env.mg.change_grid_profile()
 
@@ -491,6 +498,8 @@ class Agent:
                     "actions": all_actions,
                     "net_energy": all_net_energy
                 },
+                "actor_loss": actor_loss_hist,
+                "critic_loss": critic_loss_hist
             },
             "eval": {
                 "agent":{
@@ -513,7 +522,7 @@ class Agent:
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
 
-            if step != 0 and step % int(self.training_steps/9) == 0:
+            if step != 0 and step % 1500 == 0:
 
                 self.env.mg.change_grid_profile()
             
@@ -551,8 +560,8 @@ parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
 
 parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate")
 parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
-parser.add_argument("-ann", "--actor_nn", type=float, help="Actor neurons number")
-parser.add_argument("-cnn", "--critic_nn", type=float, help="Critic neurons number")
+parser.add_argument("-ann", "--actor_nn", type=int, help="Actor neurons number")
+parser.add_argument("-cnn", "--critic_nn", type=int, help="Critic neurons number")
 parser.add_argument("-f", "--filename", default="experiment", type=str, help="File name")
 
 args = parser.parse_args()

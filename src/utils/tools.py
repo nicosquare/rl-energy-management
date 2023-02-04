@@ -2,7 +2,10 @@ import yaml
 import numpy as np
 import torch
 from os import path, getcwd
+import matplotlib as mpl
 from matplotlib import pyplot as plt
+
+mpl.rcParams['figure.figsize'] = [10, 15]
 
 CONFIG_PATH = "config/"
 def set_all_seeds(seed):
@@ -39,14 +42,14 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     
     axs[0].plot(t_price_metric, label='Training')
     axs[0].plot(e_price_metric, label='Evaluation')
-    axs[0].plot(tst_price_metric, label='Testing')
+    # axs[0].plot(tst_price_metric, label='Testing')
     axs[0].set_title('Price')
     axs[0].set_xlabel('Epoch')
     axs[0].set_ylabel('$')
 
     axs[1].plot(t_emissions_metric, label='Training')
     axs[1].plot(e_emissions_metric, label='Evaluation')
-    axs[1].plot(tst_emissions_metric, label='Testing')
+    # axs[1].plot(tst_emissions_metric, label='Testing')
     axs[1].set_title('Emissions')
     axs[1].set_xlabel('Epoch')
     axs[1].set_ylabel('kgCO2')

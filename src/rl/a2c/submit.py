@@ -12,18 +12,29 @@ from simple_slurm import Slurm
 # Configure Slurm object
 
 slurm = Slurm(
-    cpus_per_task=32,
+    cpus_per_task=2,
     mem='20G',
-    gres='gpu:1',
-    qos='gpu-8',
-    partition='gpu',
+    qos='cpu-4',
+    partition='cpu',
     job_name='BCTE',
     output=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.out',
     error=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.err',
     time=datetime.timedelta(days=0, hours=12, minutes=0, seconds=0),
 )
 
-file = 's_simple_microgrid.py'
+# slurm = Slurm(
+#     cpus_per_task=32,
+#     mem='20G',
+#     gres='gpu:1',
+#     qos='gpu-8',
+#     partition='gpu',
+#     job_name='BCTE',
+#     output=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.out',
+#     error=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.err',
+#     time=datetime.timedelta(days=0, hours=12, minutes=0, seconds=0),
+# )
+
+file = 'a2c/d_simple_microgrid.py'
 
 # Perform random exploration of hyperparameters
 
@@ -43,12 +54,12 @@ for alr, clr, cnn, ann in product(alrs, clrs, cnns, anns):
 
     try:
 
-        slurm.sbatch(f"python ./{file}  -alr {alr} -clr {clr} -cnn {cnn} -ann {ann} -filename {exp_name}")
+        slurm.sbatch(f"python ./src/rl/{file}  -alr {alr} -clr {clr} -cnn {cnn} -ann {ann} -f {exp_name}")
 
     except:
 
         print("An exception occurred")
                 
-    time.sleep(60)
+    time.sleep(np.random.randint(1, 60))
 
 print(f"Finished!")
