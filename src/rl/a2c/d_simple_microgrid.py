@@ -618,8 +618,15 @@ if __name__ == '__main__':
 
         # Save results to pickle file
 
+        results_to_dump = results.copy()
+
+        del results_to_dump['train']['agent']['states']
+        del results_to_dump['train']['agent']['rewards']
+        del results_to_dump['train']['agent']['actions']
+        del results_to_dump['train']['agent']['net_energy']
+
         with open(f'./results/{model}_{filename}.pkl', 'wb') as f:
-            pickle.dump(results, f)
+            pickle.dump(results_to_dump, f, pickle.HIGHEST_PROTOCOL)
 
         # Make plots
 
