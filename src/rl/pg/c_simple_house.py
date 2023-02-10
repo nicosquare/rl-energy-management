@@ -21,6 +21,7 @@ from torch.functional import F
 from torch.optim import Adam
 from torch.distributions import Normal
 
+from src.utils.tools import set_all_seeds
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_house import SimpleHouse
 
@@ -39,12 +40,6 @@ zero = 1e-5
 '''
     Agent definitions
 '''
-
-def set_all_seeds(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
 
 # Function to load yaml configuration 
 

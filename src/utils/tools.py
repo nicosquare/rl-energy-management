@@ -22,7 +22,6 @@ def load_config(config_name):
 def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     
     # Parse metrics
-
     t_price_metric = np.stack(metrics['train']['agent']['price_metric'], axis=0)
     e_price_metric = np.stack(metrics['eval']['agent']['price_metric'], axis=0)
     tst_price_metric = np.stack(metrics['test']['agent']['price_metric'], axis=0)
@@ -36,20 +35,25 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     for ax in axs:
         ax.minorticks_on()
         ax.grid(True, which='both', axis='both', alpha=0.5)
+        ax.tick_params(axis='both', which='major', labelsize=15)
     
-    axs[0].plot(t_price_metric, label='Training')
-    axs[0].plot(e_price_metric, label='Evaluation')
-    axs[0].plot(tst_price_metric, label='Testing')
-    axs[0].set_title('Price')
-    axs[0].set_xlabel('Epoch')
-    axs[0].set_ylabel('$')
+    axs[0].plot(t_price_metric, label='Training', color='blue')
+    axs[0].plot(e_price_metric, label='Evaluation', color='red')
+        # Convert testing to line
+    test_line_price_array = [tst_price_metric.mean()] * 2000
+    axs[0].plot(test_line_price_array, label='Testing', color='green',linestyle='dashdot')
+    axs[0].set_title('Price', fontsize=20)
+    axs[0].set_xlabel('Epoch', fontsize=17)
+    axs[0].set_ylabel('$', fontsize=17)
 
-    axs[1].plot(t_emissions_metric, label='Training')
-    axs[1].plot(e_emissions_metric, label='Evaluation')
-    axs[1].plot(tst_emissions_metric, label='Testing')
-    axs[1].set_title('Emissions')
-    axs[1].set_xlabel('Epoch')
-    axs[1].set_ylabel('kgCO2')
+    axs[1].plot(t_emissions_metric, label='Training', color='blue')
+    axs[1].plot(e_emissions_metric, label='Evaluation', color='red')
+         # Convert testing to line
+    test_line_emissions_array = [tst_emissions_metric.mean()] * 2000
+    axs[1].plot(test_line_emissions_array, label='Testing', color='green',linestyle='dashdot')
+    axs[1].set_title('Emissions', fontsize=20)
+    axs[1].set_xlabel('Epoch', fontsize=17)
+    axs[1].set_ylabel('kgCO2', fontsize=17)
 
     # Review if cvxpy metrics are available
     
@@ -57,26 +61,26 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
         t_cvxpy_price_metric = np.stack(metrics['train']['cvxpy']['price_metric'], axis=0)
         t_cvxpy_emissions_metric = np.stack(metrics['train']['cvxpy']['emission_metric'], axis=0)
 
-        axs[0].plot(t_cvxpy_price_metric, label='CVXPY Training')
-        axs[1].plot(t_cvxpy_emissions_metric, label='CVXPY Training')
+        axs[0].plot(t_cvxpy_price_metric, label='CVXPY Training', color='blue',linestyle='dotted')
+        axs[1].plot(t_cvxpy_emissions_metric, label='CVXPY Training', color='blue',linestyle='dotted')
 
     if 'cvxpy' in metrics['eval']:
         e_cvxpy_price_metric = np.stack(metrics['eval']['cvxpy']['price_metric'], axis=0)
         e_cvxpy_emissions_metric = np.stack(metrics['eval']['cvxpy']['emission_metric'], axis=0)
 
-        axs[0].plot(e_cvxpy_price_metric, label='CVXPY Evaluation')
-        axs[1].plot(e_cvxpy_emissions_metric, label='CVXPY Evaluation')
+        axs[0].plot(e_cvxpy_price_metric, label='CVXPY Evaluation', color='red',linestyle='dotted')
+        axs[1].plot(e_cvxpy_emissions_metric, label='CVXPY Evaluation', color='red',linestyle='dotted')
 
     if 'cvxpy' in metrics['test']:
         tst_cvxpy_price_metric = np.stack(metrics['test']['cvxpy']['price_metric'], axis=0)
         tst_cvxpy_emissions_metric = np.stack(metrics['test']['cvxpy']['emission_metric'], axis=0)
 
-        axs[0].plot(tst_cvxpy_price_metric, label='CVXPY Testing')
-        axs[1].plot(tst_cvxpy_emissions_metric, label='CVXPY Testing')
+        axs[0].plot(tst_cvxpy_price_metric, label='CVXPY Testing', color='green',linestyle='dotted')
+        axs[1].plot(tst_cvxpy_emissions_metric, label='CVXPY Testing', color='green',linestyle='dotted')
     
 
-    axs[0].legend()
-    axs[1].legend()
+    axs[0].legend(fontsize=17)
+    axs[1].legend(fontsize=17)
 
     if save:
         fig.savefig(f'{filename}.png', dpi=300)

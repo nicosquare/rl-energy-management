@@ -22,8 +22,9 @@ from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
 from src.utils.tools import set_all_seeds, load_config, plot_rollout, plot_metrics
+from src.utils.cvxpy_own import loop_env, get_all_actions
 torch.autograd.set_detect_anomaly(True)
-
+torch.set_default_dtype(torch.float32)
 # Define global variables
 
 ZERO = 1e-5
@@ -220,9 +221,13 @@ class Agent:
         if self.enable_gpu and torch.cuda.is_available():
             self.device = torch.device("cuda:0")
             print("Running on GPU")
+        # elif torch.backends.mps.is_available():
+        #     self.device = torch.device("mps")
+        #     print("Running on MPS")
         else:
             self.device = torch.device("cpu")
             print("Running on CPU")
+        
 
         # Configure predictors
 
@@ -447,6 +452,7 @@ class Agent:
                 # Wandb logging
 
                 results = {
+                    # Mean from batches, sum from rollout steps (24) and mean houses
                     "rollout_avg_reward": rewards.mean(axis=2).sum(axis=0).mean(),
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
@@ -470,8 +476,8 @@ class Agent:
                 self.wdb_logger.save_model()
 
         # Return results dictionary
-
         return {
+            "rollout_avg_reward": rewards.mean(axis=2).mean(axis=1).sum(),
             "training_steps": self.training_steps,
             "rollout_steps": self.rollout_steps,
             "train": {
@@ -483,12 +489,22 @@ class Agent:
                     "actions": all_actions,
                     "net_energy": all_net_energy
                 },
+                "cvxpy":{
+                    "price_metric": train_price_metric * 0,
+                    "emission_metric": train_emission_metric * 0
+                },
             },
             "eval": {
                 "agent":{
                     "price_metric": eval_price_metric,
                     "emission_metric": eval_emission_metric
                 },
+                "cvxpy":{
+                    "price_metric": train_price_metric * 0,
+                    "emission_metric": eval_emission_metric * 0
+                },
+            },
+            "test": {
             },
         }
 
@@ -508,7 +524,10 @@ class Agent:
         return { "agent":{
                 "price_metric": test_price_metric,
                 "emission_metric": test_emission_metric
-            },
+            },"cvxpy":{
+                    "price_metric": test_price_metric * 0,
+                    "emission_metric": test_emission_metric * 0
+                },
         }
 
     # Save weights to file
@@ -533,7 +552,7 @@ class Agent:
 """
 
 if __name__ == '__main__':
-    model = "d_a2c_mg"
+    model = "d_a2c_mgE1"
 
     config = load_config(model)
     config = config['train']
@@ -563,9 +582,32 @@ if __name__ == '__main__':
 
         # Check the final model with the test dataset and retrieve metrics
 
-        results['test']['agent'] = agent.test()
+        results['test'] = agent.test()
 
         # Make plots
+        #CVXPY
+        env = SimpleMicrogrid(config=config['env'])
+            # Train
+        mode = 'train'
+        rewards_t, battery_values_t, action_values_t = get_all_actions(env, mode)
+        rewards_t_env,train_metrics = loop_env(env, action_values_t, mode)
+        results['train']['cvxpy']['price_metric'] = [train_metrics[0].mean() ] * 2000
+        results['train']['cvxpy']['emission_metric'] = [train_metrics[1].mean() ] * 2000
+
+            # Eval
+        mode = 'eval'
+        rewards_e, battery_values_e, action_values_e = get_all_actions(env, mode)
+        rewards_e_env, eval_metrics = loop_env(env, action_values_e, mode)
+        results['eval']['cvxpy']['price_metric'] = [eval_metrics[0].mean() ] * 2000
+        results['eval']['cvxpy']['emission_metric'] = [eval_metrics[1].mean() ] * 2000
+
+            # Test
+        mode = 'test'
+        rewards_s, battery_values_s, action_values_S = get_all_actions(env, mode)
+        rewards_s_env, test_metrics = loop_env(env, action_values_S, mode)
+        results['test']['cvxpy']['price_metric'] = [test_metrics[0].mean() ] * 2000
+        results['test']['cvxpy']['emission_metric'] = [test_metrics[1].mean() ] * 2000
+
 
         plot_metrics(metrics=results)
 
