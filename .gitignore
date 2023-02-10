@@ -147,3 +147,5 @@ results/*
 src/.DS_Store
 
 cscc*.sh
+cpu.sh
+gpu.sh
