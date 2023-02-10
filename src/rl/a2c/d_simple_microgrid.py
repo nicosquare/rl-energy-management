@@ -630,7 +630,7 @@ if __name__ == '__main__':
 
         # Make plots
 
-        # plot_metrics(metrics=results)
+        #plot_metrics(metrics=results)
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process

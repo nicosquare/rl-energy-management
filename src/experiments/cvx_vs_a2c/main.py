@@ -47,8 +47,8 @@ def solver(house: SyntheticHouse, n: int = 24):
         constraints.append(consumption[i] == house.demand[i]-house.pv_gen[i] + action[i] * house.battery.efficiency)
 
 
-        obj += cvxpy.maximum(consumption[i] * (house.price[i] + house.emission[i]),0) 
-        obj += cvxpy.maximum(-consumption[i] * house.price[i] * house.grid_sell_rate,0)  
+        obj += cvxpy.maximum(consumption[i] * (house.l3_export_rate[i] + house.l3_emission[i]),0) 
+        obj += cvxpy.maximum(-consumption[i] * house.l3_export_rate[i] * house.l3_import_fraction,0)  
 
 
     objective = cvxpy.Minimize(obj)

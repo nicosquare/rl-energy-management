@@ -82,7 +82,8 @@ class SimpleMicrogrid(Env):
 
     def step(self, action: np.ndarray):
 
-        state, reward = self.mg.apply_action(batt_action=action)
+        state = self.mg.apply_action(batt_action=action)
+        reward = self.mg.compute_reward()
         state = self.normalize_obs(state)
         done = self.mg.current_step >= self.mg.steps
         info = {}

@@ -13,8 +13,9 @@ class SyntheticHouse():
         
         self.batch_size = config['batch_size']
         self.steps = config['rollout_steps']
-        self.grid_profile = config['grid_profile']
-        self.grid_sell_rate = self.grid_profile['sell_rate']
+        self.l3_export_rate = config['l3_export_rate']
+        self.l3_import_fraction = config['l3_import_fraction']
+        self.l3_emission = config['l3_emission']
         self.peak_pv_gen = config['pv']['peak_pv_gen']
         self.peak_load = config['profile']['peak_load']
         self.disable_noise = config['disable_noise']
@@ -38,8 +39,6 @@ class SyntheticHouse():
         self.demand = None
         self.remaining_energy = None
         self.net_energy = None
-        self.price = None
-        self.emission = None
 
         # Components
         self.random_soc_0 = config['battery']['random_soc_0']
@@ -82,8 +81,6 @@ class SyntheticHouse():
             max_noise_pv = 0
             max_noise_demand = 0
 
-        # Generate data
-
         # Solar Generation
 
         _, self.pv_gen = self.pv_generation(min_noise=min_noise_pv, max_noise=max_noise_pv)
@@ -98,22 +95,29 @@ class SyntheticHouse():
             _, self.demand = self.demand_teenagers(min_noise=min_noise_demand, max_noise=max_noise_demand)
         else:
             _, self.demand = self.demand_family(min_noise=min_noise_demand, max_noise=max_noise_demand)
-        
-        # Grid electric production
-        self.price, self.emission = self.grid_price_and_emission()
 
         # Net energy without battery
+        
         self.remaining_energy = self.demand - self.pv_gen
 
         # Net energy starts with remaining energy value as not action has been taken yet
 
         self.net_energy = np.zeros((self.batch_size, self.steps))
+        self.net_energy_no_batt = self.remaining_energy
 
-    def change_grid_profile(self, profile):
+        # Import related registers
+
+        self.l1_import = np.zeros((self.batch_size, self.steps))
+        self.l1_import_no_batt = np.zeros(self.steps)
+        self.l1_import_rate = np.zeros((self.batch_size, self.steps))
+        self.l1_import_rate_no_batt = np.zeros(self.steps)
         
-        self.grid_profile = profile
-        self.grid_sell_rate = self.grid_profile['sell_rate']
-        self.price, self.emission = self.grid_price_and_emission()
+        # Export related registers
+
+        self.l1_export = np.zeros((self.batch_size, self.steps))
+        self.l1_export_no_batt = np.zeros(self.steps)
+        self.l1_export_rate = np.zeros((self.batch_size, self.steps))
+        self.l1_export_rate_no_batt = np.zeros(self.steps)
 
     def pv_generation(self, min_noise: float = 0, max_noise: float = 0.1):
 
@@ -180,62 +184,33 @@ class SyntheticHouse():
 
         return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
 
-    def grid_price_and_emission(self):
-
-        peak_grid_gen = self.grid_profile['peak_gen']
-        nuclear_energy_rate = self.grid_profile['nuclear_energy_rate']
-        nuclear_price = self.grid_profile['nuclear_price']
-        nuclear_emission_factor = self.grid_profile['nuclear_emission_factor']
-        gas_price = self.grid_profile['gas_price']
-        gas_emission_factor = self.grid_profile['gas_emission_factor']
-        gas_profile = np.array(self.grid_profile['gas_profile'])
-        
-        # Assume a mix between nuclear and gas power plants
-
-        nuclear_gen = np.ones(self.steps) * nuclear_energy_rate * peak_grid_gen
-        daily_gas_gen = gas_profile * (peak_grid_gen - nuclear_gen[0])
-
-        # Generate a complete profile from a daily
-
-        gas_gen = np.tile(daily_gas_gen, self.steps//len(daily_gas_gen))
-
-        if len(gas_gen) < self.steps:
-            gas_gen = np.concatenate((gas_gen, daily_gas_gen[:self.steps-len(gas_gen)]))
-
-        # Compute price and emission
-
-        price = nuclear_gen * nuclear_price + gas_gen * gas_price
-        emission = nuclear_gen * nuclear_emission_factor + gas_gen * gas_emission_factor
-
-        return price, emission
-
     def compute_metrics(self):
 
-        remaining_energy_to_step = self.remaining_energy[:self.current_step]
+        net_energy_no_batt_to_step = self.net_energy_no_batt[:self.current_step]
 
         # Compute battery performance
 
         price_without_battery = np.where(
-            remaining_energy_to_step > 0,
-            remaining_energy_to_step * self.price,
-            remaining_energy_to_step * self.price * self.grid_sell_rate
+            net_energy_no_batt_to_step > 0,
+            net_energy_no_batt_to_step * self.l3_export_rate + self.l1_import_no_batt * self.l1_import_rate_no_batt,
+            net_energy_no_batt_to_step * self.l3_export_rate * self.l3_import_fraction + self.l1_export_no_batt * self.l1_import_rate_no_batt - self.l1_export_no_batt * self.l1_export_rate_no_batt
         ).sum()
 
         price_with_battery = np.where(
             self.net_energy > 0,
-            self.net_energy * self.price,
-            self.net_energy * self.price * self.grid_sell_rate
+            self.net_energy * self.l3_export_rate + self.l1_import * self.l1_import_rate,
+            self.net_energy * self.l3_export_rate * self.l3_import_fraction + self.l1_export * self.l1_import_rate - self.l1_export * self.l1_export_rate
         ).sum(axis=1).mean()
 
         emission_without_battery = np.where(
-            remaining_energy_to_step > 0,
-            remaining_energy_to_step * self.emission,
+            net_energy_no_batt_to_step > 0,
+            net_energy_no_batt_to_step * self.l3_emission,
             0
         ).sum()
 
         emission_with_battery = np.where(
             self.net_energy > 0,
-            self.net_energy * self.emission,
+            self.net_energy * self.l3_emission,
             0
         ).sum(axis=1).mean()
 
@@ -277,17 +252,27 @@ class SyntheticHouse():
 
         self.net_energy[:,self.current_step] += (self.remaining_energy[self.current_step] + p_charge - p_discharge).squeeze()
 
-        # Compute cost
+        return self.observe()
+
+    def compute_reward(self) -> np.ndarray:
+
+        # Compute reward
 
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
-            (self.net_energy[:,self.current_step]) * (self.price[self.current_step] + self.emission[self.current_step]),
-            (self.net_energy[:,self.current_step]) * self.price[self.current_step] * self.grid_sell_rate
+            # If we are buying energy to the grid or L1 houses
+                self.net_energy[:,self.current_step] * (self.l3_export_rate[self.current_step] + self.l3_emission[self.current_step]) +
+                self.l1_import[:,self.current_step] * self.l1_import_rate[:,self.current_step]
+            ,
+            # If we are selling energy to the grid or L1 houses
+                self.net_energy[:,self.current_step] * self.l3_export_rate[self.current_step] * self.l3_import_fraction +
+                self.l1_import[:,self.current_step] * self.l1_import_rate[:,self.current_step] -
+                self.l1_export[:,self.current_step] * self.l1_export_rate[:,self.current_step]
         ).reshape(self.batch_size,1)
-        
+
         self.increment_step()
 
-        return self.observe(), -cost
+        return -cost
 
     def increment_step(self) -> None:
         self.current_step += 1
