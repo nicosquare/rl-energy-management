@@ -60,6 +60,6 @@ for alr, clr, cnn, ann in product(alrs, clrs, cnns, anns):
 
         print("An exception occurred")
                 
-    time.sleep(np.random.randint(1, 60))
+    time.sleep(np.random.randint(1, 10))
 
 print(f"Finished!")
