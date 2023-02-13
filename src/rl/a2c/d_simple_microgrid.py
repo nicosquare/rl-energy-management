@@ -165,6 +165,7 @@ class Agent:
         self.env = env
         self.batch_size = config['env']['batch_size']
         self.rollout_steps = config['env']['rollout_steps']
+        self.switch_steps = config['env']['switch_steps']
         self.training_steps = config['env']['training_steps']
         self.encoding = config['env']['encoding']
         self.central_agent = config['env']['central_agent']
@@ -362,7 +363,6 @@ class Agent:
         return price_metric, emission_metric
 
     def train(self):
-
         # Rollout registers
         
         all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
@@ -449,7 +449,7 @@ class Agent:
 
             # Rotate grid profile after each episode
 
-            if step != 0 and step % 1500 == 0:
+            if step != 0 and step % self.switch_steps == 0:
 
                 self.env.mg.change_grid_profile()
 
@@ -522,7 +522,7 @@ class Agent:
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
 
-            if step != 0 and step % 1500 == 0:
+            if step != 0 and step % self.switch_steps == 0:
 
                 self.env.mg.change_grid_profile()
             

@@ -13,7 +13,8 @@ train:
   env:
     batch_size: 32
     rollout_steps: 24
-    training_steps: 18000
+    training_steps: 36000
+    switch_steps: 3000
     central_agent: False
     disable_noise: True
     encoding: True
