@@ -36,7 +36,7 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     e_emissions_metric = np.stack(metrics['eval']['agent']['emission_metric'], axis=0)
     tst_emissions_metric = np.stack(metrics['test']['agent']['emission_metric'], axis=0)
 
-    fig = plt.figure(figsize=(10, 15), num='Difference', constrained_layout=True)
+    fig = plt.figure(figsize=(15, 10), num='Difference', constrained_layout=True)
     axs = fig.subplots(1,2)
 
     for ax in axs:
