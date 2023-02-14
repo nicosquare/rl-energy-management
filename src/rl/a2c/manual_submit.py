@@ -1,11 +1,6 @@
 import datetime
-import random
 import numpy as np
-
-from matplotlib import pyplot as plt
-from itertools import product
-import sys, time
-print(sys.executable)
+import time
 
 from simple_slurm import Slurm
 
@@ -13,7 +8,7 @@ from simple_slurm import Slurm
 
 slurm = Slurm(
     cpus_per_task=2,
-    mem='20G',
+    mem='40G',
     qos='cpu-4',
     partition='cpu',
     job_name='BCTE',
@@ -36,25 +31,32 @@ slurm = Slurm(
 
 file = 'a2c/d_simple_microgrid.py'
 
-# Perform random exploration of hyperparameters
+# Run list of experiments
 
-n_params = 3
+experiments = [
+    {
+        "alr": 0.003288427767546812,
+        "clr": 0.006038295776367509,
+        "cnn": 256,
+        "ann": 32,
+    },
+    {
+        "alr": 0.0014994966516895213,
+        "clr": 0.0028081176757678403,
+        "cnn": 128,
+        "ann": 128,
+    }
+]
 
-nns = [32, 64, 128, 256, 512]
-alrs = np.random.uniform(high=1e-2, low=1e-4, size=n_params)
-clrs = np.random.uniform(high=1e-2, low=1e-4, size=n_params)
-anns = random.sample(nns, n_params)
-cnns = random.sample(nns, n_params)
+for exp in experiments:
 
-for alr, clr, cnn, ann in product(alrs, clrs, cnns, anns):
-
-    exp_name = f"alr_{alr}_clr_{clr}_cnn_{cnn}_ann_{ann}"
+    exp_name = f"alr_{exp['alr']}_clr_{exp['clr']}_cnn_{exp['cnn']}_ann_{exp['ann']}"
     
     print(f"Starting with exp: {exp_name}")
 
     try:
 
-        slurm.sbatch(f"python ./src/rl/{file}  -alr {alr} -clr {clr} -cnn {cnn} -ann {ann} -f {exp_name}")
+        slurm.sbatch(f"python ./src/rl/{file}  -alr {exp['alr']} -clr {exp['clr']} -cnn {exp['cnn']} -ann {exp['ann']} -f {exp_name}")
 
     except:
 

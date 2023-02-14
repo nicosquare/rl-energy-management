@@ -11,6 +11,7 @@ from matplotlib import patches as patches
 mpl.rcParams['figure.figsize'] = [10, 15]
 
 CONFIG_PATH = "config/"
+
 def set_all_seeds(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -19,7 +20,7 @@ def set_all_seeds(seed):
 
 # Function to load yaml configuration file
 
-def load_config(config_name):
+def load_config(config_name: str="d_a2c_mg"):
     config_name += ".yaml" 
     with open(path.join(CONFIG_PATH, config_name)) as file:
         config = yaml.safe_load(file)
@@ -57,21 +58,25 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     axs[1].set_xlabel('Epoch')
     axs[1].set_ylabel('kgCO2')
 
-    # Patches to show the epochs where the grid profile changes
+    # Get the step size for the patches
 
-    prof_1_1 = patches.Rectangle((0, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightblue')
-    prof_2_1 = patches.Rectangle((1500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgreen')
-    prof_3_1 = patches.Rectangle((3000, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgoldenrodyellow')
-    prof_4_1 = patches.Rectangle((4500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightpink')
-    prof_5_1 = patches.Rectangle((6000, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgray')
-    prof_6_1 = patches.Rectangle((7500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightsteelblue')
+    step = int(load_config()['train']['env']['switch_steps'])
 
-    prof_1_2 = patches.Rectangle((9000, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightblue')
-    prof_2_2 = patches.Rectangle((10500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgreen')
-    prof_3_2 = patches.Rectangle((12000, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgoldenrodyellow')
-    prof_4_2 = patches.Rectangle((13500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightpink')
-    prof_5_2 = patches.Rectangle((15000, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightgray')
-    prof_6_2 = patches.Rectangle((16500, t_price_metric.min()), 1500, t_price_metric.max() - t_price_metric.min(), color='lightsteelblue')
+    # Patches to show the epochs where the grid profile changes # TODO: Make this more general and automated
+
+    prof_1_1 = patches.Rectangle((0, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightblue')
+    prof_2_1 = patches.Rectangle((step * 1, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgreen')
+    prof_3_1 = patches.Rectangle((step * 2, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgoldenrodyellow')
+    prof_4_1 = patches.Rectangle((step * 3, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightpink')
+    prof_5_1 = patches.Rectangle((step * 4, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgray')
+    prof_6_1 = patches.Rectangle((step * 5, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightsteelblue')
+
+    prof_1_2 = patches.Rectangle((step * 6, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightblue')
+    prof_2_2 = patches.Rectangle((step * 7, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgreen')
+    prof_3_2 = patches.Rectangle((step * 8, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgoldenrodyellow')
+    prof_4_2 = patches.Rectangle((step * 9, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightpink')
+    prof_5_2 = patches.Rectangle((step * 10, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightgray')
+    prof_6_2 = patches.Rectangle((step * 11, t_price_metric.min()), step, t_price_metric.max() - t_price_metric.min(), color='lightsteelblue')
 
     # Add all the patches to the plot
 
@@ -89,19 +94,19 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     axs[0].add_patch(prof_5_2)
     axs[0].add_patch(prof_6_2)
 
-    prof_1_1 = patches.Rectangle((0, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightblue')
-    prof_2_1 = patches.Rectangle((1500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgreen')
-    prof_3_1 = patches.Rectangle((3000, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgoldenrodyellow')
-    prof_4_1 = patches.Rectangle((4500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightpink')
-    prof_5_1 = patches.Rectangle((6000, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgray')
-    prof_6_1 = patches.Rectangle((7500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblue')
+    prof_1_1 = patches.Rectangle((0, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightblue')
+    prof_2_1 = patches.Rectangle((step * 1, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgreen')
+    prof_3_1 = patches.Rectangle((step * 2, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgoldenrodyellow')
+    prof_4_1 = patches.Rectangle((step * 3, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightpink')
+    prof_5_1 = patches.Rectangle((step * 4, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgray')
+    prof_6_1 = patches.Rectangle((step * 5, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblu * 1e')
 
-    prof_1_2 = patches.Rectangle((9000, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightblue')
-    prof_2_2 = patches.Rectangle((10500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgreen')
-    prof_3_2 = patches.Rectangle((12000, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgoldenrodyellow')
-    prof_4_2 = patches.Rectangle((13500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightpink')
-    prof_5_2 = patches.Rectangle((15000, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgray')
-    prof_6_2 = patches.Rectangle((16500, t_emissions_metric.min()), 1500, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblue')
+    prof_1_2 = patches.Rectangle((step * 6, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightblue')
+    prof_2_2 = patches.Rectangle((step * 7, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgreen')
+    prof_3_2 = patches.Rectangle((step * 8, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgoldenrodyellow')
+    prof_4_2 = patches.Rectangle((step * 9, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightpink')
+    prof_5_2 = patches.Rectangle((step * 10, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgray')
+    prof_6_2 = patches.Rectangle((step * 11, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblue')
 
     axs[1].add_patch(prof_1_1)
     axs[1].add_patch(prof_2_1)

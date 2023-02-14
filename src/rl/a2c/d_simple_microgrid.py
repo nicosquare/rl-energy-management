@@ -562,7 +562,7 @@ parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate"
 parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
 parser.add_argument("-ann", "--actor_nn", type=int, help="Actor neurons number")
 parser.add_argument("-cnn", "--critic_nn", type=int, help="Critic neurons number")
-parser.add_argument("-f", "--filename", default="experiment", type=str, help="File name")
+parser.add_argument("-f", "--filename", type=str, help="File name")
 
 args = parser.parse_args()
 
@@ -574,7 +574,7 @@ if __name__ == '__main__':
     
     # Get arguments and override config with command line arguments
 
-    filename = args.filename
+    filename = args.filename if args.filename is not None else f"alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
 
     if args.actor_lr is not None:
         config['agent']['actor_lr'] = args.actor_lr
