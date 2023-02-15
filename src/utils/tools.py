@@ -99,7 +99,7 @@ def plot_metrics(metrics, save: bool = False, filename: str = "metrics"):
     prof_3_1 = patches.Rectangle((step * 2, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgoldenrodyellow')
     prof_4_1 = patches.Rectangle((step * 3, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightpink')
     prof_5_1 = patches.Rectangle((step * 4, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgray')
-    prof_6_1 = patches.Rectangle((step * 5, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblu * 1e')
+    prof_6_1 = patches.Rectangle((step * 5, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightsteelblue')
 
     prof_1_2 = patches.Rectangle((step * 6, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightblue')
     prof_2_2 = patches.Rectangle((step * 7, t_emissions_metric.min()), step, t_emissions_metric.max() - t_emissions_metric.min(), color='lightgreen')
