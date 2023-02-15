@@ -15,7 +15,7 @@ import pickle
 from tqdm import tqdm
 from gym import Env
 from torch import Tensor, tensor
-from torch.nn import Module, Linear, MSELoss, Flatten
+from torch.nn import Module, Linear, MSELoss, GRU
 from torch.functional import F
 from torch.optim import Adam
 from torch.distributions import Categorical
@@ -36,21 +36,54 @@ ZERO = 1e-5
 
 class Actor(Module):
 
-    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64, batch_size=32) -> None:
 
         super(Actor, self).__init__()
 
-        self.input = Linear(obs_dim + attr_dim, hidden_dim)
-        self.output = Linear(hidden_dim, act_dim)
+        self.fc1 = Linear(obs_dim + attr_dim, hidden_dim)
+        # self.rnn = GRUCell(hidden_dim, hidden_dim, bat)
+        self.rnn = GRU(input_size=hidden_dim, hidden_size=hidden_dim)
+        self.fc2 = Linear(hidden_dim, act_dim)
+
+        self.hidden_dim = hidden_dim
+        self.batch_size = batch_size
+        self.hidden_state = self.init_hidden()
+
+    def init_hidden(self):
+        # make hidden states on same device as model
+        return self.fc1.weight.new(1, self.batch_size, self.hidden_dim).zero_()
 
     def forward(self, obs, attr):
 
         input = torch.cat([attr, obs], dim=2)
-        input = F.relu(self.input(input))
+        input = F.relu(self.fc1(input))
 
-        output = F.softmax(self.output(input), dim=2)
+        h_in = self.hidden_state.to(input.device)
+        h_out, h_n = self.rnn(input, h_in)
+
+        self.hidden_state = h_n.clone()
+
+        output = F.softmax(self.fc2(h_out), dim=2)
 
         return output
+
+# class Actor(Module):
+
+#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+
+#         super(Actor, self).__init__()
+
+#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
+#         self.output = Linear(hidden_dim, act_dim)
+
+#     def forward(self, obs, attr):
+
+#         input = torch.cat([attr, obs], dim=2)
+#         input = F.relu(self.input(input))
+
+#         output = F.softmax(self.output(input), dim=2)
+
+#         return output
 
 class Critic(Module):
 
@@ -428,6 +461,10 @@ class Agent:
                 self.critic.optimizer.zero_grad()
                 critic_loss.backward()
                 self.critic.optimizer.step()
+
+                # Re-initialize the actor hidden state
+
+                self.actor.hidden_state = self.actor.init_hidden()
 
             except Exception as e:
 
