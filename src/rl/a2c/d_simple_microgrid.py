@@ -416,10 +416,10 @@ class Agent:
             
             # Append the trajectories to the arrays
 
-            all_states.append(states)
-            all_rewards.append(rewards)
-            all_actions.append(actions_hist)
-            all_net_energy.append(self.env.mg.net_energy)
+            # all_states.append(states)
+            # all_rewards.append(rewards)
+            # all_actions.append(actions_hist)
+            # all_net_energy.append(self.env.mg.net_energy)
 
             # Perform the optimization step
 

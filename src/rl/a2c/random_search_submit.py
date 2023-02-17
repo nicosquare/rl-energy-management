@@ -9,9 +9,9 @@ from simple_slurm import Slurm
 # Configure Slurm object
 
 slurm = Slurm(
-    cpus_per_task=2,
+    cpus_per_task=16,
     mem='40G',
-    qos='cpu-4',
+    qos='cpu-512',
     partition='cpu',
     job_name='BCTE',
     output=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.out',
@@ -38,8 +38,8 @@ file = 'a2c/d_simple_microgrid.py'
 n_params = 3
 
 nns = [32, 64, 128, 256, 512]
-alrs = np.random.uniform(high=3e-3, low=1e-3, size=n_params)
-clrs = np.random.uniform(high=6e-3, low=2e-3, size=n_params)
+alrs = np.random.uniform(high=1e-3, low=1e-4, size=n_params)
+clrs = np.random.uniform(high=1e-3, low=1e-4, size=n_params)
 anns = random.sample(nns, n_params)
 cnns = random.sample(nns, n_params)
 
