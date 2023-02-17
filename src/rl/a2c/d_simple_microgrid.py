@@ -34,56 +34,56 @@ ZERO = 1e-5
     Agent definitions
 '''
 
-class Actor(Module):
-
-    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64, batch_size=32) -> None:
-
-        super(Actor, self).__init__()
-
-        self.fc1 = Linear(obs_dim + attr_dim, hidden_dim)
-        # self.rnn = GRUCell(hidden_dim, hidden_dim, bat)
-        self.rnn = GRU(input_size=hidden_dim, hidden_size=hidden_dim)
-        self.fc2 = Linear(hidden_dim, act_dim)
-
-        self.hidden_dim = hidden_dim
-        self.batch_size = batch_size
-        self.hidden_state = self.init_hidden()
-
-    def init_hidden(self):
-        # make hidden states on same device as model
-        return self.fc1.weight.new(1, self.batch_size, self.hidden_dim).zero_()
-
-    def forward(self, obs, attr):
-
-        input = torch.cat([attr, obs], dim=2)
-        input = F.relu(self.fc1(input))
-
-        h_in = self.hidden_state.to(input.device)
-        h_out, h_n = self.rnn(input, h_in)
-
-        self.hidden_state = h_n.clone()
-
-        output = F.softmax(self.fc2(h_out), dim=2)
-
-        return output
-
 # class Actor(Module):
 
-#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64, batch_size=32) -> None:
 
 #         super(Actor, self).__init__()
 
-#         self.input = Linear(obs_dim + attr_dim, hidden_dim)
-#         self.output = Linear(hidden_dim, act_dim)
+#         self.fc1 = Linear(obs_dim + attr_dim, hidden_dim)
+#         # self.rnn = GRUCell(hidden_dim, hidden_dim, bat)
+#         self.rnn = GRU(input_size=hidden_dim, hidden_size=hidden_dim)
+#         self.fc2 = Linear(hidden_dim, act_dim)
+
+#         self.hidden_dim = hidden_dim
+#         self.batch_size = batch_size
+#         self.hidden_state = self.init_hidden()
+
+#     def init_hidden(self):
+#         # make hidden states on same device as model
+#         return self.fc1.weight.new(1, self.batch_size, self.hidden_dim).zero_()
 
 #     def forward(self, obs, attr):
 
 #         input = torch.cat([attr, obs], dim=2)
-#         input = F.relu(self.input(input))
+#         input = F.relu(self.fc1(input))
 
-#         output = F.softmax(self.output(input), dim=2)
+#         h_in = self.hidden_state.to(input.device)
+#         h_out, h_n = self.rnn(input, h_in)
+
+#         self.hidden_state = h_n.clone()
+
+#         output = F.softmax(self.fc2(h_out), dim=2)
 
 #         return output
+
+class Actor(Module):
+
+    def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
+
+        super(Actor, self).__init__()
+
+        self.input = Linear(obs_dim + attr_dim, hidden_dim)
+        self.output = Linear(hidden_dim, act_dim)
+
+    def forward(self, obs, attr):
+
+        input = torch.cat([attr, obs], dim=2)
+        input = F.relu(self.input(input))
+
+        output = F.softmax(self.output(input), dim=2)
+
+        return output
 
 class Critic(Module):
 
@@ -272,7 +272,7 @@ class Agent:
 
             obs_dim = env.obs_size
 
-        attr_dim = env.house_attr_size
+        attr_dim = env.attr_size
 
         # Configure neural networks
 
@@ -312,7 +312,7 @@ class Agent:
 
     def select_action(self, state: Tensor):
 
-        probs = self.actor(obs=state, attr=tensor(self.env.houses_attr, device=self.device).float())
+        probs = self.actor(obs=state, attr=tensor(self.env.attr, device=self.device).float())
 
         # Define the distribution
 
@@ -426,8 +426,8 @@ class Agent:
             log_probs = torch.stack(log_probs, dim=0)
 
             states = tensor(np.array(states)).float().to(self.device)
-            houses_attr = tensor(np.repeat(self.env.houses_attr[np.newaxis,:,:,:], self.rollout_steps, axis=0), device=self.device).float()
-            value = self.critic(obs=states, attr=houses_attr).squeeze(dim=-1)
+            attr = tensor(np.repeat(self.env.attr[np.newaxis,:,:,:], self.rollout_steps, axis=0), device=self.device).float()
+            value = self.critic(obs=states, attr=attr).squeeze(dim=-1)
 
             # Causality trick considering gamma
 
@@ -464,7 +464,7 @@ class Agent:
 
                 # Re-initialize the actor hidden state
 
-                self.actor.hidden_state = self.actor.init_hidden()
+                # self.actor.hidden_state = self.actor.init_hidden()
 
             except Exception as e:
 

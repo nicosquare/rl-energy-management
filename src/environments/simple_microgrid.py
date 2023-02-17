@@ -39,6 +39,16 @@ class SimpleMicrogrid(Env):
 
         self.n_houses = len(self.mg.houses)
 
+        # Build a multibatch grid attr array
+
+        self.grid_attr = np.repeat(np.repeat(self.mg.attr[np.newaxis,np.newaxis,:], self.batch_size, axis=1), self.n_houses, axis=0)
+        self.grid_attr_size = self.grid_attr.shape[2]
+
+        # Complete attribute array
+
+        self.attr = np.concatenate((self.houses_attr, self.grid_attr), axis=2)
+        self.attr_size = self.attr.shape[2]
+
         # Define environment characteristics
 
         low_limit_obs = np.float32(np.array([0.0, 0.0]))
@@ -132,6 +142,11 @@ class SimpleMicrogrid(Env):
 
         self.houses_attr = np.repeat(self.mg.get_houses_attrs()[:, np.newaxis, :], self.batch_size, axis=1)
         self.house_attr_size = self.houses_attr.shape[2]
-
         self.n_houses = len(self.mg.houses)
+
+        # Update the environment attribute array
+
+        self.attr = np.concatenate((self.houses_attr, self.grid_attr), axis=2)
+        self.attr_size = self.attr.shape[2]
+
         

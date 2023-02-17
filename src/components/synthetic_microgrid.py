@@ -12,6 +12,7 @@ class SyntheticMicrogrid():
         
         self.batch_size = config['batch_size']
         self.steps = config['rollout_steps']
+        self.profile_types = [c['name'] for c in config['grid']['profiles'].values()]
         self.grid_profiles = cycle(config['grid']['profiles'].values())
         self.current_profile = next(self.grid_profiles)
         self.disable_noise = config['disable_noise']
@@ -38,10 +39,23 @@ class SyntheticMicrogrid():
         self.houses = self.house_loader(mode='train')
         self.compute_transactions_without_batt()
 
+        # Grid attributes
+
+        self.attr = self.encode_grid_attributes()
 
     @property
     def net_energy(self):
+
         return np.stack([house.net_energy for house in self.houses])
+
+    def encode_grid_attributes(self):
+
+        # Encode profile type like a one-hot vector # TODO: Improve the utils OneHotEncoder to accept strings
+
+        attr = np.zeros(len(self.profile_types))
+        attr[self.profile_types.index(self.current_profile['name'])] = 1
+
+        return attr
 
     def house_loader(self, mode : str = 'train') -> List[SyntheticHouse]:
 
@@ -105,6 +119,7 @@ class SyntheticMicrogrid():
     def change_grid_profile(self):
         
         self.current_profile = next(self.grid_profiles)
+        self.attr = self.encode_grid_attributes()
 
         price, emission = self.grid_price_and_emission()
 
