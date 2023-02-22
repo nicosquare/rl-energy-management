@@ -12,9 +12,9 @@ agent:
 env:
   batch_size: 32
   rollout_steps: 24
-  training_steps: 1000
-  switch_steps: 3000
-  sync_steps: 200
+  training_steps: 5000
+  switch_steps: 6000
+  sync_steps: 500
   central_agent: False
   disable_noise: True
   encoding: True

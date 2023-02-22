@@ -151,38 +151,25 @@ class Agent:
 
             print('This model does not support extended observations yet')
 
-            obs_dim = env.obs_size
+            self.obs_dim = env.obs_size
         else:
-            obs_dim = env.obs_size
+            self.obs_dim = env.obs_size
 
-        attr_dim = env.attr_size
+        self.attr_dim = env.attr_size
 
         # Configure neural networks, List of NN 
+        self.init_actors_critics()
 
-        self.actor_list = [Actor(obs_dim=obs_dim, attr_dim=attr_dim ,act_dim=len(self.discrete_actions), hidden_dim=self.actor_nn).to(self.device) for _ in range(env.n_houses)]
-        self.critic_list = [Critic(obs_dim=obs_dim, attr_dim=attr_dim, hidden_dim=self.critic_nn).to(self.device) for _ in range(env.n_houses)]
-
-        
-        # Configure optimizers
+        # Configure oweightsptimizers
         for actor in self.actor_list:
-            actor.optimizer = Adam(params=actor.parameters(), lr=self.actor_lr)
             actor.train()
     
         for critic in self.critic_list:
-            critic.optimizer = Adam(params=critic.parameters(), lr=self.critic_lr) 
             critic.train()
 
         # Checkpoint load from Wandb from Global model 
         if resumed:
-            checkpoint = torch.load(self.wdb_logger.load_model().name)
-            for i, (actor, critic) in enumerate(zip(self.actor_list, self.critic_list)):
-                actor.load_state_dict(checkpoint['actor_state_dict'])
-                actor.optimizer.load_state_dict(checkpoint['actor_opt_state_dict'])
-                critic.load_state_dict(checkpoint['critic_state_dict'])
-                critic.optimizer.load_state_dict(checkpoint['critic_opt_state_dict'])
-
-            self.current_step = checkpoint['current_step']
-
+            self.load_checkpoint()
         # Hooks into the models global to collect gradients and topology
         self.wdb_logger.watch_model(models=(self.actor_list[0], self.critic_list[0]))
 
@@ -196,6 +183,22 @@ class Agent:
 
         return wdb_logger
     
+    def init_actors_critics(self):
+        '''
+            Initialize the actor and critic networks
+        '''
+
+        self.actor_list = [Actor(obs_dim=self.obs_dim, attr_dim=self.attr_dim ,act_dim=len(self.discrete_actions), hidden_dim=self.actor_nn).to(self.device) for _ in range(self.env.n_houses)]
+        self.critic_list = [Critic(obs_dim=self.obs_dim, attr_dim=self.attr_dim, hidden_dim=self.critic_nn).to(self.device) for _ in range(self.env.n_houses)]
+        
+        # Configure optimizers
+        for actor in self.actor_list:
+            actor.optimizer = Adam(params=actor.parameters(), lr=self.actor_lr)
+    
+        for critic in self.critic_list:
+            critic.optimizer = Adam(params=critic.parameters(), lr=self.critic_lr) 
+
+
     # Main training loop 
     def train(self):
 
@@ -238,7 +241,7 @@ class Agent:
 
             sum_rewards = tensor(np.stack(sum_rewards)).squeeze(dim=-1).float().to(self.device)
 
-            # Loop througb all the actors and train them
+            # Loop through all the actors and train them
             for i, (actor, critic) in enumerate(zip(self.actor_list, self.critic_list)):
                 try:
                     # Get the log prob of the actor 
@@ -287,7 +290,7 @@ class Agent:
             train_emission_metric.append(t_emission_metric.mean())
 
             # Evaluate the model
-
+            self.env.change_mode(mode='eval')
             e_price_metric, e_emission_metric = self.check_model()
 
             eval_price_metric.append(e_price_metric.mean())
@@ -299,7 +302,7 @@ class Agent:
                 print("el federated learning")
 
                 # Save global weights for resume training
-                if step % self.sync_steps*2 == 0:
+                if step % self.sync_steps == 0:
 
                     # Save networks weights for resume training
 
@@ -359,38 +362,7 @@ class Agent:
                 },
             },
         }
-    
-    # Federated Learning step to sync weights between all the actors and all the critics
-    def sync_weights(self):
-        # ---- ACTOR
-        # Sync weights between the local and global models, FedAvg
-        state_dict = self.actor_list[0].state_dict()
-        mean_model_actor = {}
-
-        # Get the mean of the weights of all the actors
-        for layer in state_dict.keys():
-            param_avg = torch.stack([self.actor_list[i].state_dict()[layer] for i in range(self.env.n_houses)], axis=0).mean(axis=0)
-            mean_model_actor[layer] = param_avg.clone()
-        
-        # Update the global model with the mean of the local models
-        for i, actor in enumerate(self.actor_list):
-            self.actor_list[i].load_state_dict(mean_model_actor)
-
-        # ---- CRITIC
-        # Sync weights between the local and global models, FedAvg
-        state_dict = self.critic_list[0].state_dict()
-        mean_model_critic = {}
-
-        # Get the mean of the weights of all the actors
-        for layer in state_dict.keys():
-            param_avg = torch.stack([self.critic_list[i].state_dict()[layer] for i in range(self.env.n_houses)], axis=0).mean(axis=0)
-            mean_model_critic[layer] = param_avg.clone()
-        
-        # Update the global model with the mean of the local models
-        for i, critic in enumerate(self.critic_list):
-            self.critic_list[i].load_state_dict(mean_model_critic)
-
-
+ 
     def select_action(self, state: Tensor):
 
         actions = []
@@ -474,11 +446,8 @@ class Agent:
         return states, rewards, log_probs, actions_hist, actions_ix_hist, actions_probs
 
     # Evaluation pipeline for the model
-    def check_model(self, mode: str = 'eval'):
-
-        # Change environment to evaluation mode
-            # Freeze the weights of the model
-        self.env.change_mode(mode=mode)
+    def check_model(self):
+        # Freeze the weights of the model
         for actor in self.actor_list:
             actor.eval()
     
@@ -511,9 +480,16 @@ class Agent:
 
         for step in tqdm(range(self.current_step, self.training_steps)):
 
-            # Evaluate the model
+            # Change environment to evaluation mode
+            
+            self.env.change_mode(mode='test')
 
-            e_price_metric, e_emission_metric = self.check_model(mode='test')
+            # Create new actors and critics for the new environment and load the weights of the global model
+            self.init_actors_critics()
+            # Load the weights of the global model, before freezing them in the check_model evaluation
+            self.load_checkpoint()
+
+            e_price_metric, e_emission_metric = self.check_model()
 
             test_price_metric.append(e_price_metric.mean())
             test_emission_metric.append(e_emission_metric.mean())
@@ -528,9 +504,59 @@ class Agent:
                 "emission_metric": test_emission_metric
             },
         }
+   
 
-    # Save weights to file
+    # Federated Learning step to sync weights between all the actors and all the critics
+    def sync_weights(self):
+        # ---- ACTOR
+        # Sync weights between the local and global models, FedAvg
+        state_dict = self.actor_list[0].state_dict()
+        mean_model_actor = {}
 
+        # Get the mean of the weights of all the actors
+        for layer in state_dict.keys():
+            param_avg = torch.stack([self.actor_list[i].state_dict()[layer] for i in range(self.env.n_houses)], axis=0).mean(axis=0)
+            mean_model_actor[layer] = param_avg.clone()
+        
+        # Update the global model with the mean of the local models
+        for i, actor in enumerate(self.actor_list):
+            self.actor_list[i].load_state_dict(mean_model_actor)
+
+        # ---- CRITIC
+        # Sync weights between the local and global models, FedAvg
+        state_dict = self.critic_list[0].state_dict()
+        mean_model_critic = {}
+
+        # Get the mean of the weights of all the actors
+        for layer in state_dict.keys():
+            param_avg = torch.stack([self.critic_list[i].state_dict()[layer] for i in range(self.env.n_houses)], axis=0).mean(axis=0)
+            mean_model_critic[layer] = param_avg.clone()
+        
+        # Update the global model with the mean of the local models
+        for i, critic in enumerate(self.critic_list):
+            self.critic_list[i].load_state_dict(mean_model_critic)
+    
+    
+    def load_checkpoint(self):
+        '''
+            Load the parameters from the global model
+        '''
+        # Load parameters from wand logger or fallback to local file
+        checkpoint = torch.load('./models/2h_d_a2c_fl_model.pt')
+        # if self.wdb_logger.run is not None:
+        #     checkpoint = torch.load('./models/2h_d_a2c_fl_model.pt')
+        # else:
+        #     checkpoint = torch.load(self.wdb_logger.load_model().name)
+
+        for i, (actor, critic) in enumerate(zip(self.actor_list, self.critic_list)):
+            actor.load_state_dict(checkpoint['actor_state_dict'])
+            actor.optimizer.load_state_dict(checkpoint['actor_opt_state_dict'])
+            critic.load_state_dict(checkpoint['critic_state_dict'])
+            critic.optimizer.load_state_dict(checkpoint['critic_opt_state_dict'])
+
+        self.current_step = checkpoint['current_step']
+    
+    # Save weights to file or upload to wandb
     def save_weights(self, actor_state_dict, actor_opt_state_dict, critic_state_dict, critic_opt_state_dict, current_step):
 
         model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models'
@@ -541,7 +567,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c_fl"_model.pt')
+        }, f'{model_path}/2h_d_a2c_fl_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -623,7 +649,6 @@ if __name__ == '__main__':
 
         # Make plots
 
-        #plot_metrics(metrics=results)
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process

@@ -582,7 +582,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c"_model.pt')
+        }, f'{model_path}/2h_d_a2c_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
