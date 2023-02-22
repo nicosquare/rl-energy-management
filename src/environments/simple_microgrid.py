@@ -144,6 +144,11 @@ class SimpleMicrogrid(Env):
         self.house_attr_size = self.houses_attr.shape[2]
         self.n_houses = len(self.mg.houses)
 
+        # Update grid related information
+
+        self.grid_attr = np.repeat(np.repeat(self.mg.attr[np.newaxis,np.newaxis,:], self.batch_size, axis=1), self.n_houses, axis=0)
+        self.grid_attr_size = self.grid_attr.shape[2]
+
         # Update the environment attribute array
 
         self.attr = np.concatenate((self.houses_attr, self.grid_attr), axis=2)
