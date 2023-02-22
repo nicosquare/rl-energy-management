@@ -9,9 +9,9 @@ from simple_slurm import Slurm
 # Configure Slurm object
 
 slurm = Slurm(
-    cpus_per_task=16,
+    cpus_per_task=4,
     mem='40G',
-    qos='cpu-512',
+    qos='cpu-4',
     partition='cpu',
     job_name='BCTE',
     output=f'./logs/{Slurm.JOB_ARRAY_MASTER_ID}_{Slurm.JOB_ARRAY_ID}.out',
@@ -32,6 +32,9 @@ slurm = Slurm(
 # )
 
 file = 'a2c/d_simple_microgrid.py'
+base_exp_name = ''
+
+assert(base_exp_name == '', "Experiment name cannot be empty!")
 
 # Perform random exploration of hyperparameters
 
@@ -45,7 +48,7 @@ cnns = random.sample(nns, n_params)
 
 for alr, clr, cnn, ann in product(alrs, clrs, cnns, anns):
 
-    exp_name = f"alr_{alr}_clr_{clr}_cnn_{cnn}_ann_{ann}"
+    exp_name = f"{base_exp_name}_alr_{alr}_clr_{clr}_cnn_{cnn}_ann_{ann}"
     
     print(f"Starting with exp: {exp_name}")
 
