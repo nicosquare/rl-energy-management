@@ -172,42 +172,28 @@ class SyntheticMicrogrid():
             l1_import_rate = baseline + self.current_profile['l1_alpha'] * step_demand - self.current_profile['l1_beta'] * step_offer
             l1_export_rate = l1_import_rate - self.current_profile['l1_fee']
 
-            # Update the selling and buying rate of each house
+            # Update the houses for the current time step
 
-            for house in self.houses:
+            for house_ix, house in enumerate(self.houses):
+
+                # Update the selling and buying rate of each house
+
                 house.l1_export_rate_no_batt[step] += l1_export_rate
                 house.l1_import_rate_no_batt[step] += l1_import_rate
 
-            # Compute the transactions
+                # Update the energy transacted related information
 
-            while np.sum(step_surplus_no_batt) > 0 and np.sum(step_shortage_no_batt) > 0:
+                if step_offer > 0 and step_demand > 0:
 
-                # Find the house with the highest surplus
+                    # Compute the energy transacted and the contribution of each house
 
-                max_surplus_ix = np.argmax(step_surplus_no_batt)
-                max_surplus_value = step_surplus_no_batt[max_surplus_ix]
+                    step_transacted_energy = np.minimum(step_offer, step_demand)
+                    step_surplus_distribution = step_transacted_energy * (step_surplus_no_batt / step_offer)
+                    step_shortage_distribution = step_transacted_energy * (step_shortage_no_batt / step_demand)
 
-                # Find the house with the highest shortage
-
-                max_shortage_ix = np.argmax(step_shortage_no_batt)
-                max_shortage_value = step_shortage_no_batt[max_shortage_ix]
-
-                # Compute the transaction
-
-                transaction = np.minimum(max_surplus_value, max_shortage_value)
-
-                # Update the surplus and shortage arrays
-
-                step_surplus_no_batt[max_surplus_ix] -= transaction
-                step_shortage_no_batt[max_shortage_ix] -= transaction
-
-                # Store the transaction and update the houses
-
-                self.houses[max_surplus_ix].l1_export_no_batt[step] += transaction
-                self.houses[max_surplus_ix].net_energy_no_batt[step] += transaction
-                
-                self.houses[max_shortage_ix].l1_import_no_batt[step] += transaction
-                self.houses[max_shortage_ix].net_energy_no_batt[step] -= transaction
+                    house.l1_export_no_batt[step] += step_surplus_distribution[house_ix]
+                    house.l1_import_no_batt[step] += step_shortage_distribution[house_ix]
+                    house.net_energy_no_batt[step] += (step_surplus_distribution[house_ix] - step_shortage_distribution[house_ix])
 
     def compute_transactions(self) -> None:
 
@@ -231,43 +217,29 @@ class SyntheticMicrogrid():
             baseline = self.price[self.current_step] * self.current_profile['import_fraction']
             l1_import_rate = baseline + self.current_profile['l1_alpha'] * batch_demand - self.current_profile['l1_beta'] * batch_offer
             l1_export_rate = l1_import_rate - self.current_profile['l1_fee']
-            
-            # Update the selling and buying rate of each house
 
-            for house in self.houses:
+            # Update the houses for the current time step
+
+            for house_ix, house in enumerate(self.houses):
+
+                # Update the selling and buying rate of each house
+
                 house.l1_export_rate[batch_ix, self.current_step] = l1_export_rate
                 house.l1_import_rate[batch_ix, self.current_step] = l1_import_rate
 
-            # Compute transactions considering battery actions
+                # Update the energy transacted related information
 
-            while np.sum(batch_surplus) > 0 and np.sum(batch_shortage) > 0:
+                if batch_offer > 0 and batch_demand > 0:
 
-                # Find the house with the highest surplus
+                    # Compute the energy transacted and the contribution of each house
 
-                max_surplus_ix = np.argmax(batch_surplus)
-                max_surplus_value = batch_surplus[max_surplus_ix]
+                    batch_transacted_energy = np.minimum(batch_offer, batch_demand)
+                    batch_surplus_distribution = batch_transacted_energy * (batch_surplus / batch_offer)
+                    batch_shortage_distribution = batch_transacted_energy * (batch_shortage / batch_demand)
 
-                # Find the house with the highest shortage
-
-                max_shortage_ix = np.argmax(batch_shortage)
-                max_shortage_value = batch_shortage[max_shortage_ix]
-
-                # Compute the transaction
-
-                transaction = np.minimum(max_surplus_value, max_shortage_value)
-
-                # Update the surplus and shortage arrays
-
-                batch_surplus[max_surplus_ix] -= transaction
-                batch_shortage[max_shortage_ix] -= transaction
-
-                # Store the transaction and update the houses
-
-                self.houses[max_surplus_ix].l1_export[batch_ix, self.current_step] += transaction
-                self.houses[max_surplus_ix].net_energy[batch_ix, self.current_step] += transaction
-                
-                self.houses[max_shortage_ix].l1_import[batch_ix, self.current_step] += transaction
-                self.houses[max_shortage_ix].net_energy[batch_ix, self.current_step] -= transaction
+                    self.houses[house_ix].l1_export[batch_ix, self.current_step] += batch_surplus_distribution[house_ix]
+                    self.houses[house_ix].l1_import[batch_ix, self.current_step] += batch_shortage_distribution[house_ix]
+                    self.houses[house_ix].net_energy[batch_ix, self.current_step] += (batch_surplus_distribution[house_ix] - batch_shortage_distribution[house_ix])
 
     def compute_reward(self) -> np.ndarray:
 
