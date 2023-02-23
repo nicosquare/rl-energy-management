@@ -23,7 +23,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
-from src.utils.tools import set_all_seeds, load_config#, plot_rollout, plot_metrics
+from src.utils.tools import set_all_seeds, load_config, plot_rollout, plot_metrics
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -582,7 +582,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c"_model.pt')
+        }, f'{model_path}/2h_d_a2c_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -667,7 +667,7 @@ if __name__ == '__main__':
 
         # Make plots
 
-        #plot_metrics(metrics=results)
+        plot_metrics(metrics=results)
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
