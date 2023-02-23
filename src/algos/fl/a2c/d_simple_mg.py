@@ -542,9 +542,9 @@ class Agent:
             Load the parameters from the global model
         '''
         # Load parameters from wand logger or fallback to local file
-        checkpoint = torch.load('./models/2h_d_a2c_fl_model.pt')
+        checkpoint = torch.load('./models/2h_d_a2c_mg_fl_model.pt')
         # if self.wdb_logger.run is not None:
-        #     checkpoint = torch.load('./models/2h_d_a2c_fl_model.pt')
+        #     checkpoint = torch.load('./models/2h_d_a2c_mg_fl_model.pt')
         # else:
         #     checkpoint = torch.load(self.wdb_logger.load_model().name)
 
@@ -567,7 +567,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c_fl_model.pt')
+        }, f'{model_path}/2h_d_a2c_mg_fl_model.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -583,18 +583,19 @@ parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate"
 parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
 parser.add_argument("-ann", "--actor_nn", type=int, help="Actor neurons number")
 parser.add_argument("-cnn", "--critic_nn", type=int, help="Critic neurons number")
+parser.add_argument("-ss", "--sync_step", type=int, help="FL sync steps")
 parser.add_argument("-f", "--filename", type=str, help="File name")
 
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    model = "d_a2c_fed"
+    model = "d_a2c_mg_fl"
 
     config = load_config(model)
     
     # Get arguments and override config with command line arguments
 
-    filename =f"alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
+    filename =f"_sync_step_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
 
     # Parameters to override the config file
     if args.actor_lr is not None:
@@ -608,6 +609,9 @@ if __name__ == '__main__':
     
     if args.critic_nn is not None:
         config['agent']['critic_nn'] = args.critic_nn
+
+    if args.steps_s is not None:
+        config['env']['sync_steps'] = args.sync_step
 
     try:
         '''
@@ -644,7 +648,7 @@ if __name__ == '__main__':
         del results_to_dump['train']['agent']['actions']
         del results_to_dump['train']['agent']['net_energy']
 
-        with open(f'./results/{model}_{filename}.pkl', 'wb') as f:
+        with open(f'./results/fl/{model}_{filename}.pkl', 'wb') as f:
             pickle.dump(results_to_dump, f, pickle.HIGHEST_PROTOCOL)
 
         # Make plots
