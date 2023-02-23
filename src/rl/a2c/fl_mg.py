@@ -22,7 +22,7 @@ from torch.distributions import Categorical
 from src.utils.wandb_logger import WandbLogger
 from src.environments.simple_microgrid import SimpleMicrogrid
 
-from src.utils.tools import set_all_seeds, load_config#, plot_rollout, plot_metrics
+from src.utils.tools import set_all_seeds, load_config, plot_rollout, plot_metrics
 torch.autograd.set_detect_anomaly(True)
 
 # Define global variables
@@ -652,6 +652,7 @@ if __name__ == '__main__':
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
+        plot_metrics(results)
         agent.wdb_logger.finish()
 
     except (RuntimeError, KeyboardInterrupt):
