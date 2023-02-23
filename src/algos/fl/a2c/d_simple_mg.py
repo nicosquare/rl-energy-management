@@ -542,7 +542,10 @@ class Agent:
             Load the parameters from the global model
         '''
         # Load parameters from wand logger or fallback to local file
-        checkpoint = torch.load('./models/2h_d_a2c_mg_fl_model.pt')
+        model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models/fl'
+        filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
+
+        checkpoint = torch.load(f'{model_path}/{filename}.pt')
         # if self.wdb_logger.run is not None:
         #     checkpoint = torch.load('./models/2h_d_a2c_mg_fl_model.pt')
         # else:
@@ -559,7 +562,8 @@ class Agent:
     # Save weights to file or upload to wandb
     def save_weights(self, actor_state_dict, actor_opt_state_dict, critic_state_dict, critic_opt_state_dict, current_step):
 
-        model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models'
+        model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models/fl'
+        filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
 
         torch.save({
             'current_step': current_step,
@@ -567,7 +571,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c_mg_fl_model.pt')
+        }, f'{model_path}/{filename}.pt')
 
         print(f'Saving model on step: {current_step}')
 
