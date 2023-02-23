@@ -595,7 +595,7 @@ if __name__ == '__main__':
     
     # Get arguments and override config with command line arguments
 
-    filename =f"_sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
+    filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
 
     # Parameters to override the config file
     if args.actor_lr is not None:
