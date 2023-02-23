@@ -61,6 +61,6 @@ for sync_step, alr, clr, cnn, ann in product(sync_steps, alrs, clrs, cnns, anns)
 
         print("An exception occurred")
                 
-    time.sleep(np.random.randint(1, 10))
+    time.sleep(np.random.randint(1, 1000)/1000)
 
 print(f"Finished!")

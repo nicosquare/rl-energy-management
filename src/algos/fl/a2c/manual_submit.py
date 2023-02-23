@@ -64,6 +64,6 @@ for exp in experiments:
 
         print("An exception occurred")
                 
-    time.sleep(np.random.randint(1, 10))
+    time.sleep(np.random.randint(1, 1000)/1000)
 
 print(f"Finished!")
