@@ -49,7 +49,7 @@ sync_steps = [1, 5, 10, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
 
 for sync_step, alr, clr, cnn, ann in product(sync_steps, alrs, clrs, cnns, anns):
 
-    exp_name = f"{base_exp_name}_sync_step_{sync_step}_alr_{alr}_clr_{clr}_cnn_{cnn}_ann_{ann}"
+    exp_name = f"{base_exp_name}_sync_steps_{sync_step}_alr_{alr}_clr_{clr}_cnn_{cnn}_ann_{ann}"
     
     print(f"Starting with exp: {exp_name}")
 

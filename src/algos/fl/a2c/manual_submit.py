@@ -52,7 +52,7 @@ experiments = [
 
 for exp in experiments:
 
-    exp_name = f"sync_step_{exp['sync']}_alr_{exp['alr']}_clr_{exp['clr']}_cnn_{exp['cnn']}_ann_{exp['ann']}"
+    exp_name = f"sync_steps_{exp['sync']}_alr_{exp['alr']}_clr_{exp['clr']}_cnn_{exp['cnn']}_ann_{exp['ann']}"
     
     print(f"Starting with exp: {exp_name}")
 
