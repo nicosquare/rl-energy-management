@@ -597,10 +597,6 @@ if __name__ == '__main__':
 
     config = load_config(model)
     
-    # Get arguments and override config with command line arguments
-
-    filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
-
     # Parameters to override the config file
     if args.actor_lr is not None:
         config['agent']['actor_lr'] = args.actor_lr
@@ -616,6 +612,10 @@ if __name__ == '__main__':
 
     if args.sync_steps is not None:
         config['env']['sync_steps'] = args.sync_steps
+
+        # Get arguments and override config with command line arguments
+
+    filename =f"sync_steps_{args.sync_steps}_alr_{args.actor_lr}_clr_{args.critic_lr}_cnn_{args.actor_nn}_ann_{args.critic_nn}"
 
     try:
         '''
@@ -651,7 +651,6 @@ if __name__ == '__main__':
         del results_to_dump['train']['agent']['rewards']
         del results_to_dump['train']['agent']['actions']
         del results_to_dump['train']['agent']['net_energy']
-
         with open(f'./results/fl/{model}_{filename}.pkl', 'wb') as f:
             pickle.dump(results_to_dump, f, pickle.HIGHEST_PROTOCOL)
 
