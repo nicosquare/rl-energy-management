@@ -128,6 +128,8 @@ class SyntheticMicrogrid():
             house.l3_emission = emission
             house.l3_import_fraction = self.current_profile['import_fraction']
 
+        self.compute_transactions_without_batt()
+
     def change_mode(self, mode: str):
         
         self.houses = self.house_loader(mode=mode)
@@ -172,6 +174,10 @@ class SyntheticMicrogrid():
             l1_import_rate = baseline + self.current_profile['l1_alpha'] * step_demand - self.current_profile['l1_beta'] * step_offer
             l1_export_rate = l1_import_rate - self.current_profile['l1_fee']
 
+            # Compute the energy transacted and the contribution of each house
+
+            step_transacted_energy = np.minimum(step_offer, step_demand)
+
             # Update the houses for the current time step
 
             for house_ix, house in enumerate(self.houses):
@@ -184,10 +190,7 @@ class SyntheticMicrogrid():
                 # Update the energy transacted related information
 
                 if step_offer > 0 and step_demand > 0:
-
-                    # Compute the energy transacted and the contribution of each house
-
-                    step_transacted_energy = np.minimum(step_offer, step_demand)
+                    
                     step_surplus_distribution = step_transacted_energy * (step_surplus_no_batt / step_offer)
                     step_shortage_distribution = step_transacted_energy * (step_shortage_no_batt / step_demand)
 
@@ -279,7 +282,5 @@ class SyntheticMicrogrid():
         
         for house in self.houses:
             house.reset()
-
-        self.compute_transactions_without_batt()
 
         self.current_step = self.houses[0].current_step

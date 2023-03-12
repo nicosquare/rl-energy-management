@@ -97,7 +97,7 @@ class SimpleMicrogrid(Env):
         state = self.normalize_obs(state)
         done = self.mg.current_step >= self.mg.steps
         info = {}
-            
+
         return state, reward, done, info
 
     def reset(self):

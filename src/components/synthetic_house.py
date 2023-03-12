@@ -40,6 +40,16 @@ class SyntheticHouse():
         self.remaining_energy = None
         self.net_energy = None
 
+        # Import related registers
+
+        self.l1_import_no_batt = np.zeros(self.steps)
+        self.l1_import_rate_no_batt = np.zeros(self.steps)
+        
+        # Export related registers
+
+        self.l1_export_no_batt = np.zeros(self.steps)
+        self.l1_export_rate_no_batt = np.zeros(self.steps)
+
         # Components
         self.random_soc_0 = config['battery']['random_soc_0']
         self.battery = Battery(batch_size = self.batch_size, random_soc_0=self.random_soc_0, params = BatteryParameters(config['battery']))
@@ -67,6 +77,7 @@ class SyntheticHouse():
         # Generate data
 
         self.generate_data()
+        self.initialize_registers()
         
 
     def generate_data(self):
@@ -99,25 +110,23 @@ class SyntheticHouse():
         # Net energy without battery
         
         self.remaining_energy = self.demand - self.pv_gen
+        self.net_energy_no_batt = self.remaining_energy.copy()
+
+    def initialize_registers(self):
 
         # Net energy starts with remaining energy value as not action has been taken yet
 
         self.net_energy = np.zeros((self.batch_size, self.steps))
-        self.net_energy_no_batt = self.remaining_energy
 
         # Import related registers
 
         self.l1_import = np.zeros((self.batch_size, self.steps))
-        self.l1_import_no_batt = np.zeros(self.steps)
         self.l1_import_rate = np.zeros((self.batch_size, self.steps))
-        self.l1_import_rate_no_batt = np.zeros(self.steps)
         
         # Export related registers
 
         self.l1_export = np.zeros((self.batch_size, self.steps))
-        self.l1_export_no_batt = np.zeros(self.steps)
         self.l1_export_rate = np.zeros((self.batch_size, self.steps))
-        self.l1_export_rate_no_batt = np.zeros(self.steps)
 
     def pv_generation(self, min_noise: float = 0, max_noise: float = 0.1):
 
@@ -186,27 +195,15 @@ class SyntheticHouse():
 
     def compute_metrics(self):
 
-        net_energy_no_batt_to_step = self.net_energy_no_batt[:self.current_step]
+        price_without_battery, emission_without_battery = self.compute_metrics_no_batt(step=self.current_step)
 
         # Compute battery performance
-
-        price_without_battery = np.where(
-            net_energy_no_batt_to_step > 0,
-            net_energy_no_batt_to_step * self.l3_export_rate + self.l1_import_no_batt * self.l1_import_rate_no_batt,
-            net_energy_no_batt_to_step * self.l3_export_rate * self.l3_import_fraction + self.l1_export_no_batt * self.l1_import_rate_no_batt - self.l1_export_no_batt * self.l1_export_rate_no_batt
-        ).sum()
 
         price_with_battery = np.where(
             self.net_energy > 0,
             self.net_energy * self.l3_export_rate + self.l1_import * self.l1_import_rate,
-            self.net_energy * self.l3_export_rate * self.l3_import_fraction + self.l1_export * self.l1_import_rate - self.l1_export * self.l1_export_rate
+            self.net_energy * self.l3_export_rate * self.l3_import_fraction - self.l1_export * self.l1_export_rate + self.l1_import * self.l1_import_rate
         ).sum(axis=1).mean()
-
-        emission_without_battery = np.where(
-            net_energy_no_batt_to_step > 0,
-            net_energy_no_batt_to_step * self.l3_emission,
-            0
-        ).sum()
 
         emission_with_battery = np.where(
             self.net_energy > 0,
@@ -220,6 +217,26 @@ class SyntheticHouse():
         emission_metric = emission_with_battery - emission_without_battery
 
         return price_metric, emission_metric
+
+    def compute_metrics_no_batt(self, step: int = None):
+
+        net_energy_no_batt_to_step = self.net_energy_no_batt[:step]
+
+        # Compute battery performance
+
+        price_without_battery = np.where(
+            net_energy_no_batt_to_step > 0,
+            net_energy_no_batt_to_step * self.l3_export_rate + self.l1_import_no_batt * self.l1_import_rate_no_batt,
+            net_energy_no_batt_to_step * self.l3_export_rate * self.l3_import_fraction - self.l1_export_no_batt * self.l1_export_rate_no_batt + self.l1_import_no_batt * self.l1_import_rate_no_batt
+        ).sum()
+
+        emission_without_battery = np.where(
+            net_energy_no_batt_to_step > 0,
+            net_energy_no_batt_to_step * self.l3_emission,
+            0
+        ).sum()
+
+        return price_without_battery, emission_without_battery
 
     def observe(self) -> np.ndarray:
 
@@ -285,5 +302,5 @@ class SyntheticHouse():
             None
         """
         self.current_step = 0
-        self.generate_data()
+        self.initialize_registers()
         self.battery.reset()
