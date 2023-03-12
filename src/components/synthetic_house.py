@@ -278,7 +278,7 @@ class SyntheticHouse():
         cost = np.where(
             self.net_energy[:,self.current_step] > 0,
             # If we are buying energy to the grid or L1 houses
-                self.net_energy[:,self.current_step] * (self.l3_export_rate[self.current_step] + self.l3_emission[self.current_step]) +
+                self.net_energy[:,self.current_step] * (self.l3_export_rate[self.current_step]) +
                 self.l1_import[:,self.current_step] * self.l1_import_rate[:,self.current_step]
             ,
             # If we are selling energy to the grid or L1 houses
