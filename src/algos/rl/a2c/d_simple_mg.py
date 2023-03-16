@@ -475,19 +475,20 @@ class Agent:
     Main method definition
 """
 
-# Read arguments from command line
-
-parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
-
-parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate")
-parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
-parser.add_argument("-ann", "--actor_nn", type=int, help="Actor neurons number")
-parser.add_argument("-cnn", "--critic_nn", type=int, help="Critic neurons number")
-parser.add_argument("-f", "--filename", type=str, help="File name")
-
-args = parser.parse_args()
-
 if __name__ == '__main__':
+
+    # Read arguments from command line
+
+    parser = argparse.ArgumentParser(prog='rl', description='RL Experiments')
+
+    parser.add_argument("-alr", "--actor_lr", type=float, help="Actor learning rate")
+    parser.add_argument("-clr", "--critic_lr", type=float, help="Critic learning rate")
+    parser.add_argument("-ann", "--actor_nn", type=int, help="Actor neurons number")
+    parser.add_argument("-cnn", "--critic_nn", type=int, help="Critic neurons number")
+    parser.add_argument("-f", "--filename", type=str, help="File name")
+
+    args = parser.parse_args()
+
     model = "d_a2c_mg"
 
     config = load_config(model)
