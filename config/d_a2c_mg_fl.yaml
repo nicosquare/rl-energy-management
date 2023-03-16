@@ -9,6 +9,7 @@ agent:
   disable_logging: True
   enable_gpu: True
   extended_observation: False 
+  min_loss_stop_condition: 0.00001
 env:
   batch_size: 32
   rollout_steps: 24
