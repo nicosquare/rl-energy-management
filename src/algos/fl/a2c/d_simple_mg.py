@@ -540,7 +540,7 @@ class Agent:
     def load_checkpoint(self):
         # Load parameters from wand logger or fallback to local file
         model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models/fl'
-        filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
+        filename =f"sync_steps_{self.sync_steps}_alr_{self.actor_lr}_clr_{self.critic_lr}_cnn_{self.actor_nn}_ann_{self.critic_nn}"
 
         checkpoint = torch.load(f'{model_path}/{filename}.pt')
         # if self.wdb_logger.run is not None:
