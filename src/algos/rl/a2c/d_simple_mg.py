@@ -34,39 +34,6 @@ ZERO = 1e-5
     Agent definitions
 '''
 
-# class Actor(Module):
-
-#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64, batch_size=32) -> None:
-
-#         super(Actor, self).__init__()
-
-#         self.fc1 = Linear(obs_dim + attr_dim, hidden_dim)
-#         # self.rnn = GRUCell(hidden_dim, hidden_dim, bat)
-#         self.rnn = GRU(input_size=hidden_dim, hidden_size=hidden_dim)
-#         self.fc2 = Linear(hidden_dim, act_dim)
-
-#         self.hidden_dim = hidden_dim
-#         self.batch_size = batch_size
-#         self.hidden_state = self.init_hidden()
-
-#     def init_hidden(self):
-#         # make hidden states on same device as model
-#         return self.fc1.weight.new(1, self.batch_size, self.hidden_dim).zero_()
-
-#     def forward(self, obs, attr):
-
-#         input = torch.cat([attr, obs], dim=2)
-#         input = F.relu(self.fc1(input))
-
-#         h_in = self.hidden_state.to(input.device)
-#         h_out, h_n = self.rnn(input, h_in)
-
-#         self.hidden_state = h_n.clone()
-
-#         output = F.softmax(self.fc2(h_out), dim=2)
-
-#         return output
-
 class Actor(Module):
 
     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
@@ -104,89 +71,6 @@ class Critic(Module):
 
         return output
 
-# class Actor(Module):
-
-#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
-
-#         super(Actor, self).__init__()
-
-#         self.obs_input = Linear(obs_dim, hidden_dim)
-#         self.obs_fc = Linear(hidden_dim, hidden_dim*2)
-#         self.attr_input = Linear(attr_dim, hidden_dim)
-#         self.attr_fc = Linear(hidden_dim, hidden_dim*2)
-#         self.concat_fc = Linear(hidden_dim*4, hidden_dim*2)
-#         self.output = Linear(hidden_dim*2, act_dim)
-
-#     def forward(self, obs, attr):
-
-#         obs = F.selu(self.obs_input(obs))
-#         obs = F.selu(self.obs_fc(obs))
-
-#         att = F.selu(self.attr_input(attr))
-#         att = F.selu(self.attr_fc(att))
-
-#         output = torch.cat([att, obs], dim=2)
-#         output = F.selu(self.concat_fc(output))
-
-#         output = F.softmax(self.output(output), dim=2)
-
-#         return output
-
-# class Critic(Module):
-
-#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
-
-#         super(Critic, self).__init__()
-
-#         self.input_obs = Linear(obs_dim, hidden_dim)
-#         self.input_attr = Linear(attr_dim, hidden_dim)
-#         self.output = Linear(hidden_dim*2, 1)
-
-#     def forward(self, obs, attr):
-
-#         obs = F.selu(self.input_obs(obs))
-#         att = F.relu(self.input_attr(attr))
-
-#         output = torch.cat([att, obs], dim=3)
-#         output = self.output(output)
-
-#         return output
-
-# class Actor(Module):
-
-#     def __init__(self, obs_dim, attr_dim, act_dim, hidden_dim=64) -> None:
-
-#         super(Actor, self).__init__()
-
-#         self.obs_input = Linear(obs_dim, hidden_dim)
-        
-#         self.output = Linear(hidden_dim, act_dim)
-
-#     def forward(self, obs, attr):
-
-#         obs = F.relu(self.obs_input(obs))
-        
-#         output = F.softmax(self.output(obs), dim=2)
-
-#         return output
-
-# class Critic(Module):
-
-#     def __init__(self, obs_dim, attr_dim, hidden_dim=64) -> None:
-
-#         super(Critic, self).__init__()
-
-#         self.input_obs = Linear(obs_dim, hidden_dim)
-        
-#         self.output = Linear(hidden_dim, 1)
-
-#     def forward(self, obs, attr):
-
-#         obs = F.relu(self.input_obs(obs))
-#         output = self.output(obs)
-
-#         return output
-
 class Agent:
 
     def __init__(
@@ -194,7 +78,7 @@ class Agent:
     ):
 
         # Get env and its params
-
+        self.counter = 0
         self.env = env
         self.batch_size = config['env']['batch_size']
         self.rollout_steps = config['env']['rollout_steps']
@@ -207,7 +91,6 @@ class Agent:
         config = config['agent']
 
         # Get params from yaml config file
-
         self.num_disc_act = config['num_disc_act']
         self.actor_lr = config['actor_lr']
         self.critic_lr = config['critic_lr']
@@ -218,7 +101,7 @@ class Agent:
         self.enable_gpu = config['enable_gpu']
         self.extended_observation = config['extended_observation']
         # self.early_stop = config['early_stop'] #TODO review this name and min loss
-        self.min_loss = 0.01
+        self.min_loss = config['min_loss_stop_condition']
 
         # Other params 
         self.resumed = resumed
@@ -495,10 +378,11 @@ class Agent:
             stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
             
             if step % 50 == 0 or stop_condition:
-
+                self.counter = self.counter + 1
                 # Wandb logging
-
                 results = {
+                    "train_price_metric": t_price_metric.mean(),
+                    "train_emission_metric": t_emission_metric.mean(),
                     "rollout_avg_reward": rewards.mean(axis=2).sum(axis=0).mean(),
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
@@ -667,10 +551,11 @@ if __name__ == '__main__':
 
         # Make plots
 
-        plot_metrics(metrics=results)
+        # plot_metrics(metrics=results)
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
+        print(agent.counter)
 
         agent.wdb_logger.finish()
 

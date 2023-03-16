@@ -70,7 +70,6 @@ class Critic(Module):
 
         return output
 
-
 class Agent:
 
     def __init__(
@@ -78,6 +77,7 @@ class Agent:
     ):
 
         # Get env and its params
+        self.counter = 0
 
         self.env = env
         self.batch_size = config['env']['batch_size']
@@ -105,7 +105,7 @@ class Agent:
         self.enable_gpu = config['enable_gpu']
         self.extended_observation = config['extended_observation']
         # self.early_stop = config['early_stop'] #TODO review this name and min loss
-        self.min_loss = 0.01
+        self.min_loss = config['min_loss_stop_condition']
 
         # Other params 
         self.resumed = resumed
@@ -123,6 +123,7 @@ class Agent:
             "agent_actor_nn": self.actor_nn,
             "agent_critic_nn": self.critic_nn,
             "gamma": self.gamma,
+            "sync_steps": self.sync_steps,
             "central_agent": self.central_agent,
             "random_soc_0": env.mg.houses[0].battery.random_soc_0, # It will be the same for all houses
             "encoding": self.encoding,
@@ -148,7 +149,6 @@ class Agent:
 
         # Configure predictors
         if self.extended_observation:
-
             print('This model does not support extended observations yet')
 
             self.obs_dim = env.obs_size
@@ -183,11 +183,8 @@ class Agent:
 
         return wdb_logger
     
+    # Initialize the actor and critic networks
     def init_actors_critics(self):
-        '''
-            Initialize the actor and critic networks
-        '''
-
         self.actor_list = [Actor(obs_dim=self.obs_dim, attr_dim=self.attr_dim ,act_dim=len(self.discrete_actions), hidden_dim=self.actor_nn).to(self.device) for _ in range(self.env.n_houses)]
         self.critic_list = [Critic(obs_dim=self.obs_dim, attr_dim=self.attr_dim, hidden_dim=self.critic_nn).to(self.device) for _ in range(self.env.n_houses)]
         
@@ -247,7 +244,7 @@ class Agent:
                     # Get the log prob of the actor 
                     agent_log_probs = torch.stack([p[i] for p in log_probs])
                     # Get actions
-                    agent_action_ix = torch.tensor(actions_ix_hist[:, i, :].reshape(self.rollout_steps, 1, self.batch_size)).to(self.device)
+                    # agent_action_ix = torch.tensor(actions_ix_hist[:, i, :].reshape(self.rollout_steps, 1, self.batch_size)).to(self.device)
 
                     # Modify house attr matrix to fit number of time steps for critic input
                     attr = tensor(np.repeat(self.env.attr[np.newaxis,i,:,:], self.rollout_steps, axis=0), device=self.device).float()
@@ -327,10 +324,13 @@ class Agent:
             stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
             
             # Log results in wandb
-            if step % 50 == 0 or stop_condition:
+            if step != 0 and step % 50 == 0 or stop_condition:
+                self.counter = self.counter + 1
 
                 # Wandb logging
                 results = {
+                    "train_price_metric": t_price_metric.mean(),
+                    "train_emission_metric": t_emission_metric.mean(),
                     "rollout_avg_reward": rewards.mean(axis=2).sum(axis=0).mean(),
                     "actor_loss": actor_loss.item(),
                     "critic_loss": critic_loss.item(),
@@ -536,11 +536,8 @@ class Agent:
         for i, critic in enumerate(self.critic_list):
             self.critic_list[i].load_state_dict(mean_model_critic)
     
-    
+    # Load the parameters from the global model
     def load_checkpoint(self):
-        '''
-            Load the parameters from the global model
-        '''
         # Load parameters from wand logger or fallback to local file
         model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models/fl'
         filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
@@ -658,8 +655,12 @@ if __name__ == '__main__':
 
         # plot_rollout(env=my_env, results=results)
         
-        # Finish wandb process
-        plot_metrics(results)
+        # Finish wandb process 
+        print("train", results['train']['agent']['price_metric'][-1], results['train']['agent']['emission_metric'][-1])
+        print("test", results['test']['agent']['price_metric'][-1], results['test']['agent']['emission_metric'][-1])
+
+        # plot_metrics(results)
+        print(agent.counter)
         agent.wdb_logger.finish()
 
     except (RuntimeError, KeyboardInterrupt):
