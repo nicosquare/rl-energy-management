@@ -121,11 +121,11 @@ class SyntheticMicrogrid():
         self.current_profile = next(self.grid_profiles)
         self.attr = self.encode_grid_attributes()
 
-        price, emission = self.grid_price_and_emission()
+        self.price, self.emission = self.grid_price_and_emission()
 
         for house in self.houses:
-            house.l3_export_rate = price
-            house.l3_emission = emission
+            house.l3_export_rate = self.price
+            house.l3_emission = self.emission
             house.l3_import_fraction = self.current_profile['import_fraction']
 
         self.compute_transactions_without_batt()
@@ -170,7 +170,7 @@ class SyntheticMicrogrid():
 
             # Compute selling and buying rate according to supply and demand
 
-            baseline = self.price[step] * self.current_profile['import_fraction']
+            baseline = self.price[step] * (1 - self.current_profile['import_fraction'])
             l1_import_rate = baseline + self.current_profile['l1_alpha'] * step_demand - self.current_profile['l1_beta'] * step_offer
             l1_export_rate = l1_import_rate - self.current_profile['l1_fee']
 
@@ -217,7 +217,7 @@ class SyntheticMicrogrid():
 
             # Compute selling and buying rate according to supply and demand
 
-            baseline = self.price[self.current_step] * self.current_profile['import_fraction']
+            baseline = self.price[self.current_step] * (1 - self.current_profile['import_fraction'])
             l1_import_rate = baseline + self.current_profile['l1_alpha'] * batch_demand - self.current_profile['l1_beta'] * batch_offer
             l1_export_rate = l1_import_rate - self.current_profile['l1_fee']
 

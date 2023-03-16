@@ -137,6 +137,10 @@ class SyntheticHouse():
 
         gen = ((base + noise) * self.peak_pv_gen).clip(min=0)
 
+        # Normalize generation
+        
+        gen = gen / gen.max() if gen.max() > 0 else gen
+
         return base.clip(min=0), gen
 
     def demand_from_day_profile(
@@ -160,6 +164,10 @@ class SyntheticHouse():
 
         full_base = base + complete_profile
         demand = full_base + noise + np.abs(self.temp - 22) * 0.01
+
+        # Normalize demand
+
+        demand = demand / demand.max() if demand.max() > 0 else demand
 
         return full_base, demand
 
