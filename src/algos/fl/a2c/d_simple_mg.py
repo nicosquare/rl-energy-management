@@ -560,7 +560,7 @@ class Agent:
     def save_weights(self, actor_state_dict, actor_opt_state_dict, critic_state_dict, critic_opt_state_dict, current_step):
 
         model_path = self.wdb_logger.run.dir if self.wdb_logger.run is not None else './models/fl'
-        filename =f"sync_steps_{config['env']['sync_steps']}_alr_{config['agent']['actor_lr']}_clr_{config['agent']['critic_lr']}_cnn_{config['agent']['actor_nn']}_ann_{config['agent']['critic_nn']}"
+        filename =f"sync_steps_{self.sync_steps}_alr_{self.actor_lr}_clr_{self.critic_lr}_cnn_{self.actor_nn}_ann_{self.critic_nn}"
 
         torch.save({
             'current_step': current_step,
