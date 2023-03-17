@@ -196,7 +196,7 @@ class SyntheticHouse():
         # Day profile defined arbitrarily according to the assumed behaviour of a home business
 
         day_profile = np.array([
-            0, 0, 0, 0, 0, 0.25, 0.83, 1, 0.25, 0, 0, 0, 0, 0, 0, 0.33, 0.41, 0.41, 0.66, 0.83, 0.66, 0.25, 0.83, 0
+            0, 0, 0, 0, 0, 0.25, 0.83, 1, 0.25, 0.8, 0.8, 0.7, 0.8, 0.8, 0.8, 0.33, 0.41, 0.41, 0.66, 0.83, 0.66, 0.25, 0.83, 0
         ])
 
         return self.demand_from_day_profile(day_profile, base_power_rate=0.6, min_noise=min_noise, max_noise=max_noise)
