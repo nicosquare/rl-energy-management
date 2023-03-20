@@ -7,14 +7,15 @@ train:
     actor_nn: 64
     critic_nn: 512
     gamma: 1.0
-    disable_logging: False
+    disable_logging: True
     enable_gpu: True
-    extended_observation: False 
+    extended_observation: False
+    min_loss_stop_condition: 0.00001 
   env:
     batch_size: 32
     rollout_steps: 24
-    training_steps: 10000
-    switch_steps: 1000
+    training_steps: 24000
+    switch_steps: 2000
     central_agent: False
     disable_noise: True
     encoding: True
