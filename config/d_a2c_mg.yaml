@@ -41,8 +41,8 @@ train:
           peak_gen: 1
           import_fraction: 0.25
           l1_fee: 0.01
-          l1_alpha: 0.005
-          l1_beta: 0.003
+          l1_alpha: 0.0005
+          l1_beta: 0.0003
           nuclear_energy_rate: 0.4
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
@@ -54,8 +54,8 @@ train:
           peak_gen: 1
           import_fraction: 0.25
           l1_fee: 0.01
-          l1_alpha: 0.002
-          l1_beta: 0.004
+          l1_alpha: 0.0002
+          l1_beta: 0.0004
           nuclear_energy_rate: 0.4
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
@@ -67,8 +67,8 @@ train:
           peak_gen: 1
           import_fraction: 0.35
           l1_fee: 0.01
-          l1_alpha: 0.004
-          l1_beta: 0.002
+          l1_alpha: 0.0004
+          l1_beta: 0.0002
           nuclear_energy_rate: 1
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
@@ -80,8 +80,8 @@ train:
           peak_gen: 1
           import_fraction: 0.15
           l1_fee: 0.01
-          l1_alpha: 0.008
-          l1_beta: 0.009
+          l1_alpha: 0.0008
+          l1_beta: 0.0009
           nuclear_energy_rate: 0
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
@@ -93,8 +93,8 @@ train:
           peak_gen: 1
           import_fraction: 0.15
           l1_fee: 0.01
-          l1_alpha: 0.007
-          l1_beta: 0.002
+          l1_alpha: 0.0007
+          l1_beta: 0.0002
           nuclear_energy_rate: 0.2
           nuclear_price: 0.1
           nuclear_emission_factor: 0.1
