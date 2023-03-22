@@ -281,7 +281,7 @@ class Agent:
     def train(self):
         # Rollout registers
         
-        all_states, all_rewards, all_actions, all_net_energy = [], [], [], []
+        all_soc, all_rewards, all_actions, all_net_energy = [], [], [], []
 
         # Metrics registers
 
@@ -299,10 +299,10 @@ class Agent:
             
             # Append the trajectories to the arrays
 
-            # all_states.append(states)
-            # all_rewards.append(rewards)
-            # all_actions.append(actions_hist)
-            # all_net_energy.append(self.env.mg.net_energy)
+            all_soc.append(self.env.mg.soc)
+            all_rewards.append(np.array(rewards).mean(axis=2).squeeze())
+            all_actions.append(np.array(actions_hist).mean(axis=2))
+            all_net_energy.append(self.env.mg.net_energy)
 
             # Perform the optimization step
 
@@ -345,10 +345,6 @@ class Agent:
                 critic_loss.backward()
                 self.critic.optimizer.step()
 
-                # Re-initialize the actor hidden state
-
-                # self.actor.hidden_state = self.actor.init_hidden()
-
             except Exception as e:
 
                 traceback.print_exc()
@@ -359,6 +355,11 @@ class Agent:
 
             train_price_metric.append(t_price_metric.mean())
             train_emission_metric.append(t_emission_metric.mean())
+
+            offer = self.env.mg.offer
+            demand = self.env.mg.demand
+            l1_import = self.env.mg.l1_import
+            l1_export = self.env.mg.l1_export
 
             # Evaluate the model
 
@@ -381,6 +382,8 @@ class Agent:
 
                 # Wandb logging
                 results = {
+                    "offer_demand": (demand-offer).mean(),
+                    "l1_import_export": (l1_import-l1_export).mean(),
                     "train_price_metric": t_price_metric.mean(),
                     "train_emission_metric": t_emission_metric.mean(),
                     "rollout_avg_reward": rewards.mean(axis=2).sum(axis=0).mean(),
@@ -414,7 +417,7 @@ class Agent:
                 "agent":{
                     "price_metric": train_price_metric,
                     "emission_metric": train_emission_metric,
-                    "states": all_states,
+                    "states": all_soc,
                     "rewards": all_rewards,
                     "actions": all_actions,
                     "net_energy": all_net_energy

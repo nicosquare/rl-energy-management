@@ -45,8 +45,51 @@ class SyntheticMicrogrid():
 
     @property
     def net_energy(self):
+        return np.stack([house.net_energy for house in self.houses]).mean(axis=1)
+    
+    @property
+    def l1_export(self):
+        return np.stack([house.l1_export for house in self.houses]).mean(axis=1)
+    
+    @property
+    def l1_import(self):
+        return np.stack([house.l1_import for house in self.houses]).mean(axis=1)
+    
+    @property
+    def l1_export_rate_no_batt(self):
+        return self.houses[0].l1_export_rate_no_batt
+    
+    @property
+    def l1_import_rate_no_batt(self):
+        return self.houses[0].l1_export_rate_no_batt
+    
+    @property
+    def l1_export_rate(self):
+        return np.stack([house.l1_export_rate for house in self.houses]).mean(axis=1)
+    
+    @property
+    def l1_import_rate(self):
+        return np.stack([house.l1_import_rate for house in self.houses]).mean(axis=1)
+    
+    @property
+    def soc(self):
+        return np.stack([house.battery.hist_soc for house in self.houses]).mean(axis=1)
+    
+    @property
+    def p_charge(self):
+        return np.stack([house.battery.hist_p_charge for house in self.houses]).mean(axis=1)
+    
+    @property
+    def p_discharge(self):
+        return np.stack([house.battery.hist_p_discharge for house in self.houses]).mean(axis=1)
 
-        return np.stack([house.net_energy for house in self.houses])
+    @property
+    def offer(self):
+        return np.maximum(-self.net_energy.mean(axis=0),0)
+    
+    @property
+    def demand(self):
+        return np.maximum(self.net_energy.mean(axis=0),0)
 
     def encode_grid_attributes(self):
 
