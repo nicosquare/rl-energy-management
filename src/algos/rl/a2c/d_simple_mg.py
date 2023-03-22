@@ -74,11 +74,10 @@ class Critic(Module):
 class Agent:
 
     def __init__(
-        self,config, env: Env,  resumed: bool = False 
+        self,config, env: Env,  resumed: bool = False, filename: str = None
     ):
 
         # Get env and its params
-        self.counter = 0
         self.env = env
         self.batch_size = config['env']['batch_size']
         self.rollout_steps = config['env']['rollout_steps']
@@ -87,6 +86,7 @@ class Agent:
         self.encoding = config['env']['encoding']
         self.central_agent = config['env']['central_agent']
         self.disable_noise = config['env']['disable_noise']
+        self.filename = filename
         
         config = config['agent']
 
@@ -378,7 +378,7 @@ class Agent:
             stop_condition = actor_loss.abs().item() <= self.min_loss and critic_loss.abs().item() <= self.min_loss
             
             if step % 50 == 0 or stop_condition:
-                self.counter = self.counter + 1
+
                 # Wandb logging
                 results = {
                     "train_price_metric": t_price_metric.mean(),
@@ -391,7 +391,7 @@ class Agent:
 
                 self.wdb_logger.log_dict(results)
 
-            if step % 250 == 0:
+            if step % 250 == 0 or step == (self.training_steps - 1):
 
                 # Save networks weights for resume training
 
@@ -466,7 +466,7 @@ class Agent:
             'actor_opt_state_dict': actor_opt_state_dict,
             'critic_state_dict': critic_state_dict,
             'critic_opt_state_dict': critic_opt_state_dict,
-        }, f'{model_path}/2h_d_a2c_model.pt')
+        }, f'{model_path}/{self.filename}.pt')
 
         print(f'Saving model on step: {current_step}')
 
@@ -526,7 +526,7 @@ if __name__ == '__main__':
         # Instantiate the agent
 
         agent = Agent(
-            env=my_env, config = config
+            env=my_env, config = config, filename=filename
         )
 
         # Launch the training
@@ -556,7 +556,6 @@ if __name__ == '__main__':
         # plot_rollout(env=my_env, results=results)
         
         # Finish wandb process
-        print(agent.counter)
 
         agent.wdb_logger.finish()
 

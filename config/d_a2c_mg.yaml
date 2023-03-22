@@ -115,7 +115,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -132,7 +131,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -149,7 +147,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -166,7 +163,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -183,7 +179,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -200,7 +195,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -218,7 +212,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -235,7 +228,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -252,7 +244,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -269,7 +260,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -286,7 +276,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -303,7 +292,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -321,7 +309,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -338,7 +325,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -355,7 +341,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -372,7 +357,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -389,7 +373,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -406,7 +389,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -423,7 +405,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -440,7 +421,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -457,7 +437,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
@@ -474,7 +453,6 @@ train:
             soc_min: 0.1
             p_charge_max: 0.8
             p_discharge_max: 0.8
-            efficiency: 0.9
             sell_price: 0.0
             buy_price: 0.0
           pv:
